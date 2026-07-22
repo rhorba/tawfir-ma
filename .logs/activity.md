@@ -25,3 +25,7 @@ MILESTONE: docs/test-strategy-tawfir.md drafted (pending user approval) — risk
 MILESTONE: docs/devops-tawfir.md drafted (pending user approval) — 3-env strategy, CI pipeline contract (lint/test/security-scan/build/deploy), Docker setup, env var contract for .env.example
 MILESTONE: docs/stories-tawfir.md drafted (pending user approval) — 7 epics / 17 stories mapping every PRD FR to a story with acceptance criteria; Sprint 4 (CMI integration) flagged as blocked on SDR-3 custody-model decision
 All 10 foundation docs now drafted. Awaiting final user approval before commit+push per CLAUDE.md rule 13.
+
+## 2026-07-22 — SHIP phase (Sprint 1 close)
+MILESTONE: User approved full 10-doc foundation chain.
+PUSH: commit b374ba6 "docs: foundation documents for Tawfir.ma" pushed to origin/feature/sprint-1-docs (new branch on remote). No code shipped this sprint — docs only, so 80% coverage gate and video-recording rules (CLAUDE.md rules 6/9) don't apply yet; they activate starting Sprint 2 once code exists.
