@@ -26,8 +26,15 @@ User ──1:1──> AuthIdentity (phone number, OTP state)
 -- Table: users
 CREATE TABLE users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone_number  VARCHAR(20) NOT NULL UNIQUE,   -- encrypted at rest (pgcrypto or app-layer) — see security doc
-  full_name     VARCHAR(255) NOT NULL,
+  phone_number  VARCHAR(20) NOT NULL UNIQUE,   -- 🔶 stored plaintext for Sprint 2 — encryption-at-rest
+                                                -- (§7) deferred: AES-GCM's random IV breaks the UNIQUE
+                                                -- constraint/equality lookup needed for login, so this
+                                                -- needs a blind-index design (separate HMAC lookup column),
+                                                -- not a drop-in converter. Must land before any shared/staging
+                                                -- environment holds real phone numbers.
+  full_name     VARCHAR(255),                  -- nullable (changed from v1.0): OTP verify auto-creates the
+                                                -- user record on first login, before any name is collected;
+                                                -- filled in later via Profile/Settings (ux-tawfir.md IA)
   national_id   VARCHAR(50),                    -- nullable; 🔶 confirm if required for MVP KYC
   role          VARCHAR(20) NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('MEMBER', 'ADMIN')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -43,6 +50,21 @@ CREATE TABLE otp_challenges (
   consumed_at   TIMESTAMPTZ,
   attempt_count SMALLINT NOT NULL DEFAULT 0,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Table: refresh_tokens (added Sprint 2 Batch 2 — not in the original v1.0 schema;
+-- required for refresh-token rotation + reuse detection per ADR-3 / security doc §3,
+-- which "stateless JWT" alone can't provide)
+CREATE TABLE refresh_tokens (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(id),
+  family_id       UUID NOT NULL,                  -- shared across a rotation chain; reuse of a
+                                                    -- revoked/replaced token revokes the whole family
+  token_hash      VARCHAR(255) NOT NULL UNIQUE,    -- SHA-256 of the raw refresh token, never the raw value
+  issued_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at      TIMESTAMPTZ NOT NULL,
+  revoked_at      TIMESTAMPTZ,
+  replaced_by_id  UUID REFERENCES refresh_tokens(id)
 );
 
 -- Table: groups
@@ -150,6 +172,8 @@ CREATE TABLE savings_history_snapshots (
 | ledger_entries | idx_ledger_payout | payout_schedule_id | Deriving current payout state |
 | disputes | idx_disputes_group_status | (group_id, status) | "open disputes for this group" |
 | otp_challenges | idx_otp_phone_expiry | (phone_number, expires_at) | OTP verification lookup |
+| refresh_tokens | idx_refresh_family | family_id | Reuse detection: revoke whole family |
+| refresh_tokens | idx_refresh_user | user_id | Logout-all / list active sessions |
 
 No index on `users.role` or other low-cardinality booleans/enums with small tables (YAGNI — table sizes at MVP scale don't justify it).
 
@@ -157,6 +181,7 @@ No index on `users.role` or other low-cardinality booleans/enums with small tabl
 | Migration File | Description | Reversible |
 |---|---|---|
 | 001_create_users_and_auth.sql | users, otp_challenges | Yes |
+| 001a_create_refresh_tokens.sql | refresh_tokens (added Sprint 2 Batch 2) | Yes |
 | 002_create_groups_and_memberships.sql | groups, group_memberships | Yes |
 | 003_create_schedules.sql | contribution_schedules, payout_schedules | Yes |
 | 004_create_ledger.sql | ledger_entries + REVOKE UPDATE/DELETE grant (see §7) | Yes (down migration re-grants, but should never be run against real data) |
