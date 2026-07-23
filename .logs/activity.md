@@ -70,3 +70,9 @@ Deviation from test-strategy-tawfir.md §2: frontend tooling is Vitest (not Jest
 ## 2026-07-23 — Sprint 2 Batch 1 SHIP phase
 Branch cut: feature/sprint-2-auth-groups (from feature/sprint-1-docs tip), per user decision — Sprint 2+ code now lives on its own branch rather than the docs-named branch.
 PUSH: committing Batch 1 (backend/, frontend-member/, frontend-admin/, docker-compose.yml, .github/workflows/ci.yml, .env.example, .gitignore, CLAUDE.md, README.md, .claude/) and pushing to origin/feature/sprint-2-auth-groups per CLAUDE.md rule 7. CI monitoring (rule 11) follows immediately after push.
+
+## 2026-07-23 — CI monitoring (rule 11)
+CI run 29989911979 on push (commit d48248c): RED. Two failures:
+1. Security scan job: `aquasecurity/trivy-action@0.24.0` does not exist (tags use `v` prefix, e.g. `v0.28.0`) — action failed to resolve entirely.
+2. Backend Lint (Checkstyle) job: `./mvnw: Permission denied` (exit 126) — mvnw wrapper script was committed without the executable bit (100644 instead of 100755), likely lost on Windows checkout/commit.
+Fix: pinned trivy-action to `@v0.28.0`; ran `git update-index --chmod=+x backend/mvnw` to restore the exec bit in the index. Re-pushing; monitoring for green per rule 11 (stop-the-line until resolved).
