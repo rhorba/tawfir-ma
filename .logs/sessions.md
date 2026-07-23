@@ -42,3 +42,19 @@ User confirmed start of Sprint 2 (Auth + Group Lifecycle), picked 🔴 COMPREHEN
 - **Open issues**: None logged.
 - **Open risks**: Custody-model decision (risks.md) still blocks Sprint 4. No new risks from Batch 1.
 ---
+
+## SESSION_START — 2026-07-23 (continuation)
+Resumed from prior SESSION_END. User confirmed: commit+push Batch 1 now (rather than continue to Batch 2 first), and cut a new branch `feature/sprint-2-auth-groups` instead of continuing on `feature/sprint-1-docs`.
+
+### [2026-07-23 SESSION_END]
+- **Completed**:
+  - Sprint 2 Batch 1 (scaffold/Docker/CI) committed+pushed to new branch `feature/sprint-2-auth-groups`. CI was red on first push (3 rounds of fixes: `trivy-action` version tag didn't exist → `v0.28.0` → its own `setup-trivy` pin was dead → `v0.36.0` which pins by commit SHA; `backend/mvnw` missing exec bit; real HIGH-severity CVE-2026-54291 in postgresql driver → bumped to 42.7.12). Green as of commit `7da77b3`.
+  - Sprint 2 Batch 2a (Epic 1 Auth backend, stories 1.1-1.3): OTP request/verify, JWT access+refresh, refresh rotation with reuse detection, logout. Flyway migrations added (users, otp_challenges, refresh_tokens). jjwt 0.12.6, BCrypt for OTP hashing, SHA-256 for refresh-token hashing. 40 tests, checkstyle + 80% coverage gate all pass. Pushed as commit `ae142e4`, CI green on first try (`9853198` logs it).
+- **Document-first deviations logged in database-tawfir.md** (per rule 12): added `refresh_tokens` table (missing from v1.0 schema, needed for rotation/reuse-detection); relaxed `users.full_name` to nullable (auto-created on first OTP verify, no name collected yet). `users.phone_number` encryption-at-rest is explicitly **deferred, not implemented** — flagged in the doc as needing a blind-index design (AES-GCM's random IV breaks the UNIQUE/login-lookup constraint) — must land before any shared/staging environment holds real phone numbers.
+- **Bug caught during VERIFY** (fixed before ship): reuse-detected refresh-token family revocation was being silently rolled back by the same `@Transactional` method's own thrown exception. Fixed via `RefreshTokenRevocationService` with `REQUIRES_NEW` propagation. Only the full-stack Testcontainers integration test caught this — worth remembering that mocked-repository unit tests can't see real transaction/rollback behavior.
+- **In progress**: Nothing mid-file — Batch 2a is in a clean, shipped state.
+- **Not yet done**: Sprint 2 Batch 2b — React member app (phone entry + OTP verify screens) and Angular admin app (login screen) wiring to the now-complete auth API. Backend has no frontend consumer yet.
+- **Next session**: Start Batch 2b per the plan in activity.md's "Sprint 2 PLAN phase" entry (2.4 React screens, 2.5 Angular admin login). After that, Batch 3 (Epic 2 Group Lifecycle, stories 2.1-2.4) closes out Sprint 2.
+- **Open issues**: None logged.
+- **Open risks**: (1) Custody-model / BAM licensing decision (risks.md) still blocks Sprint 4. (2) `users.phone_number` plaintext storage — must be resolved (blind-index encryption) before any shared/staging deploy. (3) Per-IP OTP rate limiting still an open TODO (security-tawfir.md §3) — only phone-based limiting exists.
+---
