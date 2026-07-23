@@ -76,3 +76,5 @@ CI run 29989911979 on push (commit d48248c): RED. Two failures:
 1. Security scan job: `aquasecurity/trivy-action@0.24.0` does not exist (tags use `v` prefix, e.g. `v0.28.0`) — action failed to resolve entirely.
 2. Backend Lint (Checkstyle) job: `./mvnw: Permission denied` (exit 126) — mvnw wrapper script was committed without the executable bit (100644 instead of 100755), likely lost on Windows checkout/commit.
 Fix: pinned trivy-action to `@v0.28.0`; ran `git update-index --chmod=+x backend/mvnw` to restore the exec bit in the index. Re-pushing; monitoring for green per rule 11 (stop-the-line until resolved).
+
+Re-run 29990663338 (commit 3190987): Backend, Frontend Member, Frontend Admin all GREEN. Security scan still RED — different cause: trivy-action@v0.28.0's own action.yaml pins `aquasecurity/setup-trivy@v0.2.1`, a tag that no longer exists upstream (deleted/renamed). Verified aquasecurity/trivy-action@v0.36.0 pins setup-trivy by commit SHA instead of a tag, avoiding this class of breakage going forward. Updated to v0.36.0; verified semgrep/semgrep-action@v1 and gitleaks/gitleaks-action@v2 tags both resolve before re-pushing.
