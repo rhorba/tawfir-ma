@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- CVE-2026-54291 (SCRAM-SHA-256-PLUS downgrade MITM): fixed in 42.7.12, override Spring Boot's managed version -->
+		<postgresql.version>42.7.12</postgresql.version>
 	</properties>
 	<dependencies>
 		<dependency>
