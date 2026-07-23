@@ -1,0 +1,32 @@
+# Env / secrets
+.env
+.env.local
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Node / frontend (React + Angular)
+node_modules/
+dist/
+build/
+.angular/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / crash dumps
+*.log
+*.stackdump
+
+# Test / coverage
+coverage/
+.nyc_output/

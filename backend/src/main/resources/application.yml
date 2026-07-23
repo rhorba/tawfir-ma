@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: tawfir-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/tawfir}
+    username: ${DATABASE_USER:tawfir}
+    password: ${DATABASE_PASSWORD:tawfir_dev_password}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+tawfir:
+  jwt:
+    signing-key: ${JWT_SIGNING_KEY:dev-only-change-me-before-any-shared-environment}
+    access-ttl-minutes: ${JWT_ACCESS_TTL_MINUTES:15}
+    refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:7}
+  otp:
+    provider: ${OTP_PROVIDER:mock}
+  payment:
+    provider: ${CMI_PROVIDER:mock}
+    webhook-secret: ${CMI_WEBHOOK_SECRET:mock-webhook-secret}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}

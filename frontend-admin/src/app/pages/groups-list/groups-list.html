@@ -1,0 +1,27 @@
+<main class="groups-page">
+  <h1>All Groups</h1>
+
+  @if (groups().length === 0) {
+    <p>No groups to show.</p>
+  } @else {
+    <table mat-table [dataSource]="groups()" class="mat-elevation-z1">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Group</th>
+        <td mat-cell *matCellDef="let group">
+          <a [routerLink]="['/groups', group.id]">{{ group.name }}</a>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let group">{{ group.status }}</td>
+      </ng-container>
+      <ng-container matColumnDef="memberCount">
+        <th mat-header-cell *matHeaderCellDef>Members</th>
+        <td mat-cell *matCellDef="let group">{{ group.memberCount }}</td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+    </table>
+  }
+</main>

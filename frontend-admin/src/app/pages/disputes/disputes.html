@@ -1,0 +1,13 @@
+<main class="disputes-page">
+  <h1>Disputes</h1>
+
+  @if (disputes().length === 0) {
+    <p>No open disputes.</p>
+  } @else {
+    <ul>
+      @for (dispute of disputes(); track dispute.id) {
+        <li>{{ dispute.groupName }} — {{ dispute.status }}</li>
+      }
+    </ul>
+  }
+</main>
