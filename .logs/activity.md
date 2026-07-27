@@ -96,3 +96,22 @@ Not yet done: React/Angular login screens wiring (Batch 2b) — backend auth API
 
 ## 2026-07-23 — Sprint 2 Batch 2a SHIP phase
 PUSH: commit ae142e4 pushed to origin/feature/sprint-2-auth-groups. CI run 30015988321: GREEN on first try (all 5 jobs) — no fixes needed this time, unlike Batch 1.
+
+## 2026-07-26 — Sprint 2 Batch 2b PLAN
+Scope: wire existing Login screen scaffolds (React member app, Angular admin app) to the completed auth API (POST /api/v1/auth/otp/request, /otp/verify). Refresh/logout wiring deferred — no other screen needs a session yet.
+
+Tasks:
+  2.4a React: authClient (requestOtp/verifyOtp, token persistence in localStorage: tawfir_access_token/tawfir_refresh_token)
+  2.4b React: Login.tsx wired — loading/error states (429 rate-limit, 401 invalid code, 400 bad phone), navigate to /groups on success
+  2.4c React: update Login.test.tsx with mocked fetch
+  2.5a Angular: provideHttpClient in app.config.ts; AuthService (requestOtp/verifyOtp, token persistence, JWT role-claim decode)
+  2.5b Angular: login.ts/login.html wired — loading/error states, ADMIN-role client gate (balanced approach, see decisions.md), navigate to /dashboard on success
+  2.5c Angular: update login.spec.ts with mocked HttpClient
+  VERIFY: run both test suites + coverage gates
+
+## 2026-07-26 — Sprint 2 Batch 2b EXECUTE + VERIFY
+MILESTONE: React member app Login.tsx wired to POST /api/v1/auth/otp/request + /otp/verify (frontend-member/src/lib/authClient.ts) — loading state, 429/401/400 error surfacing, tokens persisted to localStorage, navigates to /groups on success.
+MILESTONE: Angular admin app login.ts wired to same endpoints (frontend-admin/src/app/core/auth.service.ts, provideHttpClient added to app.config.ts) — client-side JWT role-claim decode gates non-ADMIN accounts locally (balanced approach per decisions.md), navigates to /dashboard on success for ADMIN.
+BUG CAUGHT IN VERIFY (fixed before ship): shared apiClient.ts apiFetch() only special-cased HTTP 204 as an empty body; the real /otp/request endpoint returns 202 with an empty body, so response.json() threw on parse and every successful OTP request was surfaced to the user as a generic error. Fixed by reading response.text() first and treating any empty body as undefined rather than gating on status 204 specifically. Caught by the new Login.test.tsx OTP-request test, not by any unit test that mocked the client directly.
+VERIFY: frontend-member — 14/14 tests pass, coverage 93.05% stmts / 88.88% branches (>= 80% gate). frontend-admin — 20/20 tests pass, coverage 98.67% stmts / 94.05% branches (>= 80% gate). oxlint (member) and ng lint (admin) both clean; admin lint required switching AuthService/Login to inject() over constructor injection per this repo's eslint config (@angular-eslint/prefer-inject).
+Not yet done: refresh/logout wiring — deferred, no other screen consumes a session yet (GroupsList/Profile/Dashboard still placeholders).

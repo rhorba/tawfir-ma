@@ -24,3 +24,6 @@ Chosen approach: 🔴 COMPREHENSIVE. Full expert doc chain (PRD, System Design, 
 
 ## 2026-07-22 — Sprint 2 BRAINSTORM decision
 Chosen approach: 🔴 COMPREHENSIVE. Scaffold Spring Boot + React + Angular, stand up Docker Compose dev environment and the full CI pipeline (lint, test w/ 80% coverage gate, Semgrep/Trivy/Gitleaks security scan, build) from devops-tawfir.md BEFORE writing Epic 1/2 feature code — every commit from story 1.1 onward runs through the full gate.
+
+## 2026-07-26 — Batch 2b decision
+Admin login (frontend-admin): balanced approach chosen — client-side JWT role-claim decode after otp/verify; non-ADMIN roles are rejected locally (tokens cleared, error shown) rather than reaching the dashboard shell. Explicitly UX-only, not a security boundary — real server-side role enforcement is deferred to Batch 3 @PreAuthorize work on group endpoints.

@@ -2,14 +2,18 @@
   <div class="login-card">
     <h1>Tawfir Admin</h1>
 
+    @if (error()) {
+      <p class="error-message" role="alert">{{ error() }}</p>
+    }
+
     @if (step() === 'phone') {
       <form (ngSubmit)="requestOtp()" #phoneForm="ngForm">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Phone number</mat-label>
           <input matInput type="tel" name="phoneNumber" required [(ngModel)]="phoneNumber" placeholder="+212 6XX XXX XXX" />
         </mat-form-field>
-        <button mat-flat-button color="primary" type="submit" class="full-width" [disabled]="phoneForm.invalid">
-          Send code
+        <button mat-flat-button color="primary" type="submit" class="full-width" [disabled]="phoneForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Sending…' : 'Send code' }}
         </button>
       </form>
     } @else {
@@ -19,8 +23,8 @@
           <mat-label>Code</mat-label>
           <input matInput type="text" inputmode="numeric" name="code" required [(ngModel)]="code" />
         </mat-form-field>
-        <button mat-flat-button color="primary" type="submit" class="full-width" [disabled]="otpForm.invalid">
-          Verify
+        <button mat-flat-button color="primary" type="submit" class="full-width" [disabled]="otpForm.invalid || isSubmitting()">
+          {{ isSubmitting() ? 'Verifying…' : 'Verify' }}
         </button>
       </form>
     }

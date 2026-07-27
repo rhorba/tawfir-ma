@@ -6,3 +6,7 @@
 - frontend-admin: 17/17 tests pass. Coverage 100% stmts / 97.1% branch / 91.7% funcs / 100% lines (gate: 80/70/80/80). ESLint clean.
 - Docker Compose stack verified end-to-end (temporary port override for local smoke test, reverted): postgres healthy, backend /actuator/health UP against real Postgres, both SPAs serve + SPA-fallback routing confirmed via curl.
 
+
+## 2026-07-26 — Sprint 2 Batch 2b coverage
+frontend-member: 93.05% statements / 88.88% branches / 88.46% functions (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS
+frontend-admin: 98.67% statements / 94.05% branches / 95% functions (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS

@@ -22,12 +22,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   })
 
   if (!response.ok) {
-    throw new ApiError(response.status, `Request to ${path} failed with ${response.status}`)
+    const message = await response
+      .clone()
+      .json()
+      .then((body: { message?: string }) => body.message)
+      .catch(() => undefined)
+    throw new ApiError(response.status, message ?? `Request to ${path} failed with ${response.status}`)
   }
 
-  if (response.status === 204) {
+  const text = await response.text()
+  if (!text) {
     return undefined as T
   }
 
-  return response.json() as Promise<T>
+  return JSON.parse(text) as T
 }

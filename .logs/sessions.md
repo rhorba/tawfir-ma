@@ -58,3 +58,6 @@ Resumed from prior SESSION_END. User confirmed: commit+push Batch 1 now (rather 
 - **Open issues**: None logged.
 - **Open risks**: (1) Custody-model / BAM licensing decision (risks.md) still blocks Sprint 4. (2) `users.phone_number` plaintext storage — must be resolved (blind-index encryption) before any shared/staging deploy. (3) Per-IP OTP rate limiting still an open TODO (security-tawfir.md §3) — only phone-based limiting exists.
 ---
+
+## SESSION_START — 2026-07-26 (continuation)
+Resumed from prior SESSION_END (2026-07-23). Working tree clean, branch feature/sprint-2-auth-groups up to date with origin. Picking up Batch 2b: React member app (phone entry + OTP verify screens) and Angular admin app (login screen), wiring to completed auth API.

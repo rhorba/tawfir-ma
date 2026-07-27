@@ -17,3 +17,9 @@
 .full-width {
   width: 100%;
 }
+
+.error-message {
+  margin: 0 0 16px;
+  color: var(--color-error, #d32f2f);
+  font-size: 0.875rem;
+}
