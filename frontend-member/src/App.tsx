@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router'
 import Login from './routes/Login'
 import GroupsList from './routes/GroupsList'
 import GroupDetail from './routes/GroupDetail'

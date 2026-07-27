@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 
 export default function GroupsList() {
   // Wired to GET /api/v1/groups in Epic 2 (story 2.4)
