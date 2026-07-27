@@ -61,3 +61,12 @@ Resumed from prior SESSION_END. User confirmed: commit+push Batch 1 now (rather 
 
 ## SESSION_START — 2026-07-26 (continuation)
 Resumed from prior SESSION_END (2026-07-23). Working tree clean, branch feature/sprint-2-auth-groups up to date with origin. Picking up Batch 2b: React member app (phone entry + OTP verify screens) and Angular admin app (login screen), wiring to completed auth API.
+
+### [2026-07-27 SESSION_END]
+- **Completed**: Sprint 2 Batch 2b — React member app Login screen and Angular admin app login screen both wired to the auth API (otp/request, otp/verify), with loading/error states and token persistence. Admin login adds a client-side JWT role-claim gate (balanced approach, decisions.md) rejecting non-ADMIN accounts locally. Bug caught+fixed in VERIFY: shared apiFetch() mishandled the 202-empty-body response from /otp/request. Committed a41fece, pushed, CI went RED on a real Trivy finding (GHSA-qwww-vcr4-c8h2 in react-router-dom 7.18.1) — fixed by migrating frontend-member from react-router-dom onto react-router@8.3.0 directly (react-router-dom is now a frozen v7 re-export shim). Re-pushed e929327, CI GREEN (all 5 jobs). Sprint 2 Batch 2b SHIP phase closed.
+- **In progress**: Nothing mid-file — Batch 2b is in a clean, shipped state.
+- **Not yet done**: Sprint 2 Batch 3 — Epic 2 Group Lifecycle (stories 2.1-2.4: create-group draft, payout order config, finalize/schedule generation, GET /groups + /groups/:id, React create-group + group-list/detail screens). This is the last batch of Sprint 2.
+- **Next session**: Start Batch 3 per the plan already logged in this file's "Sprint 2 PLAN phase" entry (2026-07-22). No video recording triggered yet (CLAUDE.md rule 9) — Sprint 2 isn't complete until Batch 3 ships; re-evaluate at that point since it will be the first user-facing full vertical slice (auth + groups).
+- **Open issues**: None logged.
+- **Open risks**: (1) Custody-model / BAM licensing decision (risks.md) still blocks Sprint 4. (2) `users.phone_number` plaintext storage — must be resolved (blind-index encryption) before any shared/staging deploy. (3) Per-IP OTP rate limiting still an open TODO (security-tawfir.md §3). (4) No backend-side ADMIN role enforcement exists yet (@PreAuthorize) — today's admin-app login gate is client-side/UX-only; must land with Batch 3's protected group endpoints before this is a real security boundary.
+---
