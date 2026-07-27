@@ -35,3 +35,16 @@ export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
 }
+
+/** Decodes the JWT payload's subject (user id) without verifying the signature — UX only, not a security boundary. */
+export function getCurrentUserId(): string | null {
+  const token = localStorage.getItem(ACCESS_TOKEN_KEY)
+  if (!token) return null
+  try {
+    const payload = token.split('.')[1]
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return decoded.sub ?? null
+  } catch {
+    return null
+  }
+}

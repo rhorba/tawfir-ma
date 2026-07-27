@@ -27,3 +27,8 @@ Chosen approach: 🔴 COMPREHENSIVE. Scaffold Spring Boot + React + Angular, sta
 
 ## 2026-07-26 — Batch 2b decision
 Admin login (frontend-admin): balanced approach chosen — client-side JWT role-claim decode after otp/verify; non-ADMIN roles are rejected locally (tokens cleared, error shown) rather than reaching the dashboard shell. Explicitly UX-only, not a security boundary — real server-side role enforcement is deferred to Batch 3 @PreAuthorize work on group endpoints.
+
+## 2026-07-27 — Batch 3 decisions
+1. total_cycles must equal member count exactly at finalize (classic tontine: every member contributes every cycle, receives exactly one payout across the rotation). Finalize rejects otherwise. Chosen over "cycles <= member count" to avoid an unspecified half-built case (extra contributing-only members with no payout slot).
+2. Manual payout order is expressed by the order of the `members` array in the create-group request (position = array index + 1) — no extra staging column needed beyond what database-tawfir.md already defines; RANDOMIZED mode shuffles and assigns payout_position at finalize time (per stories-tawfir.md 2.2's "deterministic-once-set" requirement). MANUAL assigns from the stored array order at finalize too, so config stays mutable pre-finalize (architecture doc §5 PATCH note) without a redundant field.
+3. Organizer is included as a regular entry in the `members` array (must supply their own phone number like everyone else); if omitted, they're auto-appended as the last member with role_in_group=ORGANIZER. Every other listed phone number gets role_in_group=MEMBER, auto-creating a User row if the phone hasn't registered yet (same auto-create-on-first-touch pattern as OTP verify in Batch 2a).

@@ -1,8 +1,29 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
+import { ApiError } from '../lib/apiClient'
+import { listGroups, type GroupSummary } from '../lib/groupsClient'
 
 export default function GroupsList() {
-  // Wired to GET /api/v1/groups in Epic 2 (story 2.4)
-  const groups: { id: string; name: string; status: string }[] = []
+  const [groups, setGroups] = useState<GroupSummary[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    listGroups()
+      .then((result) => {
+        if (!cancelled) setGroups(result)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiError ? err.message : 'Could not load your groups.')
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
@@ -16,7 +37,13 @@ export default function GroupsList() {
         </Link>
       </div>
 
-      {groups.length === 0 ? (
+      {error && (
+        <p role="alert" className="mb-4 text-sm text-(--color-error, #dc2626)">
+          {error}
+        </p>
+      )}
+
+      {!isLoading && !error && groups.length === 0 ? (
         <p className="text-(--color-text-muted)">No groups yet — create or join one.</p>
       ) : (
         <ul className="space-y-2">

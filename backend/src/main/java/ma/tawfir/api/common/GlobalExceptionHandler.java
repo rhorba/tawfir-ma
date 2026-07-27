@@ -4,6 +4,7 @@ import java.time.Instant;
 import ma.tawfir.api.auth.InvalidOtpException;
 import ma.tawfir.api.auth.InvalidTokenException;
 import ma.tawfir.api.auth.RateLimitExceededException;
+import ma.tawfir.api.group.GroupNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,21 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ApiError> handleValidation(MethodArgumentNotValidException ex) {
 		return build(HttpStatus.BAD_REQUEST, "Invalid request payload");
+	}
+
+	@ExceptionHandler(ValidationException.class)
+	public ResponseEntity<ApiError> handleValidation(ValidationException ex) {
+		return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+	}
+
+	@ExceptionHandler(ForbiddenException.class)
+	public ResponseEntity<ApiError> handleForbidden(ForbiddenException ex) {
+		return build(HttpStatus.FORBIDDEN, ex.getMessage());
+	}
+
+	@ExceptionHandler(GroupNotFoundException.class)
+	public ResponseEntity<ApiError> handleNotFound(GroupNotFoundException ex) {
+		return build(HttpStatus.NOT_FOUND, ex.getMessage());
 	}
 
 	@ExceptionHandler(Exception.class)
