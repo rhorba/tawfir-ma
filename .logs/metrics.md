@@ -10,3 +10,7 @@
 ## 2026-07-26 — Sprint 2 Batch 2b coverage
 frontend-member: 93.05% statements / 88.88% branches / 88.46% functions (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS
 frontend-admin: 98.67% statements / 94.05% branches / 95% functions (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS
+
+## 2026-07-27 — Sprint 2 Batch 3 coverage
+backend: 98% instructions / 98% branches (JaCoCo gate: 80%) — PASS. 18 new tests (GroupServiceTest 14, GroupControllerTest 8 minus overlap... see activity.md for exact split; GroupLifecycleIntegrationTest 4).
+frontend-member: 93.1% statements / 80.23% branches / 92.72% functions (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS. 23/23 tests total (6 new group-screen tests).
