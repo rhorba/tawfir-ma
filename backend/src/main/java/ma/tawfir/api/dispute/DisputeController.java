@@ -1,12 +1,14 @@
 package ma.tawfir.api.dispute;
 
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.UUID;
 import ma.tawfir.api.dispute.dto.DisputeResponse;
 import ma.tawfir.api.dispute.dto.OpenDisputeRequest;
 import ma.tawfir.api.dispute.dto.ResolveDisputeRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +30,11 @@ public class DisputeController {
 	public DisputeResponse openDispute(@PathVariable UUID groupId, @Valid @RequestBody OpenDisputeRequest request,
 			Authentication authentication) {
 		return disputeService.openDispute(userId(authentication), groupId, request, isAdmin(authentication));
+	}
+
+	@GetMapping("/api/v1/groups/{groupId}/disputes")
+	public List<DisputeResponse> listForGroup(@PathVariable UUID groupId, Authentication authentication) {
+		return disputeService.listForGroup(userId(authentication), groupId, isAdmin(authentication));
 	}
 
 	@PatchMapping("/api/v1/disputes/{disputeId}/resolve")

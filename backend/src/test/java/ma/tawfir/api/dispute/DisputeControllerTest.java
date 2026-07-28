@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -93,6 +94,29 @@ class DisputeControllerTest {
 				.principal(authenticationOf(userId))
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"ledgerEntryId\":\"" + UUID.randomUUID() + "\",\"reason\":\"wrong amount\"}"))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void listForGroup_member_returns200() throws Exception {
+		UUID groupId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		when(disputeService.listForGroup(userId, groupId, false)).thenReturn(List.of());
+
+		mockMvc.perform(get("/api/v1/groups/{groupId}/disputes", groupId)
+				.principal(authenticationOf(userId)))
+			.andExpect(status().isOk());
+	}
+
+	@Test
+	void listForGroup_nonMember_returns403() throws Exception {
+		UUID groupId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		when(disputeService.listForGroup(userId, groupId, false))
+			.thenThrow(new ForbiddenException("You are not a member of this group"));
+
+		mockMvc.perform(get("/api/v1/groups/{groupId}/disputes", groupId)
+				.principal(authenticationOf(userId)))
 			.andExpect(status().isForbidden());
 	}
 

@@ -196,6 +196,30 @@ class DisputeServiceTest {
 	}
 
 	@Test
+	void listForGroup_member_returnsDisputes() {
+		UUID groupId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		when(membershipRepository.existsByGroupIdAndUserId(groupId, userId)).thenReturn(true);
+		when(disputeRepository.findByGroupId(groupId))
+			.thenReturn(java.util.List.of(dispute(UUID.randomUUID(), groupId, UUID.randomUUID(), userId)));
+
+		java.util.List<DisputeResponse> result = disputeService.listForGroup(userId, groupId, false);
+
+		assertThat(result).hasSize(1);
+	}
+
+	@Test
+	void listForGroup_nonMember_throwsForbidden() {
+		UUID groupId = UUID.randomUUID();
+		UUID userId = UUID.randomUUID();
+		when(membershipRepository.existsByGroupIdAndUserId(groupId, userId)).thenReturn(false);
+
+		assertThatThrownBy(() -> disputeService.listForGroup(userId, groupId, false))
+			.isInstanceOf(ForbiddenException.class);
+		verify(disputeRepository, never()).findByGroupId(any());
+	}
+
+	@Test
 	void resolveDispute_admin_bypassesOrganizerCheck() {
 		UUID groupId = UUID.randomUUID();
 		UUID disputeId = UUID.randomUUID();

@@ -20,3 +20,7 @@ backend: 89/89 tests pass (`mvnw verify`, JDK 21). JaCoCo: 97.35% instructions (
 
 ## 2026-07-28 — Sprint 3 Batch 2 coverage (Disputes backend)
 backend: 109/109 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.0% instructions (1781/1855) / 95.65% branches (88/92) — well above 80% gate. Checkstyle: 0 violations. New suites: DisputeServiceTest (9), DisputeControllerTest (6), DisputeLifecycleIntegrationTest (5, full-stack Testcontainers covering open-dispute/non-member-403/organizer-resolve/non-organizer-403/concurrent-resolve-race).
+
+## 2026-07-28 — Sprint 3 Batch 3 coverage (ledger/dispute list endpoints + React wiring)
+backend: 118/118 tests pass (`mvnw verify`, JDK 21). Checkstyle: 0 violations, JaCoCo gate met. New: LedgerServiceTest (3), LedgerControllerTest (2), 2 new DisputeService/Controller tests for the new list-for-group endpoint.
+frontend-member: 31/31 tests pass. Coverage 86.81% statements / 74.5% branches / 85.71% functions / 88.55% lines (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS. oxlint clean, `tsc -b && vite build` succeeds.

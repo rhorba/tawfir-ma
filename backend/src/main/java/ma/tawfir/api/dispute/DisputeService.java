@@ -1,6 +1,7 @@
 package ma.tawfir.api.dispute;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import ma.tawfir.api.common.ForbiddenException;
@@ -93,6 +94,15 @@ public class DisputeService {
 
 		return toResponse(disputeRepository.findById(disputeId)
 			.orElseThrow(() -> new NotFoundException("Dispute not found: " + disputeId)));
+	}
+
+	public List<DisputeResponse> listForGroup(UUID actingUserId, UUID groupId, boolean isAdmin) {
+		if (!isAdmin && !membershipRepository.existsByGroupIdAndUserId(groupId, actingUserId)) {
+			throw new ForbiddenException("You are not a member of this group");
+		}
+		return disputeRepository.findByGroupId(groupId).stream()
+			.map(this::toResponse)
+			.toList();
 	}
 
 	private void requireOrganizer(UUID groupId, UUID userId) {
