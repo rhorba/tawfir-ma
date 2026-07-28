@@ -132,3 +132,15 @@ Scope note: Angular admin Groups screens remain placeholders (out of this epic's
 
 ## 2026-07-27 — Sprint 2 Batch 3 SHIP phase
 PUSH: commit 800a66d pushed to origin/feature/sprint-2-auth-groups. CI run 30266687060: GREEN on first try (all 5 jobs — Frontend Member, Backend, Security scan, Frontend Admin, Build Docker images). Sprint 2 Batch 3 (Epic 2 Group Lifecycle) SHIP phase complete. Sprint 2 is now fully done: Batch 1 (scaffold/CI/Docker), Batch 2a (auth backend), Batch 2b (auth frontend), Batch 3 (group lifecycle) all shipped and green.
+
+## 2026-07-27 — Sprint 3 PLAN phase
+User confirmed Sprint 3 scope (Epic 3 partial: 3.1/3.2/3.4, Epic 5: 5.1/5.2 — no CMI dependency, unblocked despite SDR-3). Plan: Batch 1 Ledger+Contributions domain -> Batch 2 Disputes -> Batch 3 React frontend. Decisions logged in decisions.md (no notification delivery for late-flagging, no auto-reversal on dispute resolve, append-only enforced via DB trigger not REVOKE). Starting Batch 1.
+
+## 2026-07-28 — Sprint 3 Batch 1 VERIFY (resumed)
+Resumed from prior session's unverified fix: `clearAutomatically = true` added to the two `@Modifying` CAS queries in `ContributionScheduleRepository` (compareAndSetStatus, flagOverdueAsLate) to stop Hibernate's first-level cache serving a stale entity after a bulk update within the same transaction.
+
+Environment blockers hit and resolved before the fix could even be tested (both pre-existing local-machine drift, not code issues):
+1. Machine's default JDK had been auto-upgraded to Temurin 25 since the last session (JAVA_HOME now `C:\Program Files\Eclipse Adoptium\jdk-25.0.3.9-hotspot`) — JaCoCo 0.8.12 cannot instrument class file major version 68/69 (JDK 24/25 bytecode), so every test run failed at the instrumentation step before any test logic ran. Project's `java.version` is still pinned to 21 per pom.xml; rather than bumping the project's target JDK (an undiscussed scope change), ran the build pinned to the JDK 21 install still present at `C:\Program Files\Java\jdk-21`. Maven itself auto-resolved jacoco-maven-plugin to 0.8.13 for this JDK, which handles this correctly — no pom.xml change needed.
+2. Docker Desktop was not running, so Testcontainers' `postgresContainer` bean failed with "Could not find a valid Docker environment" — every `@SpringBootTest` (all 6 ContributionLifecycleIntegrationTest cases) errored at ApplicationContext load, not at the specific mark-paid assertion. Started Docker Desktop and waited for the daemon.
+
+With both resolved: `ContributionLifecycleIntegrationTest` — 6/6 pass, confirming the `clearAutomatically` fix resolved `memberMarksPaid_organizerConfirms_ledgerEntryAppended`. Full `mvnw verify` (JDK 21) — BUILD SUCCESS, 89/89 tests pass across all suites, Checkstyle 0 violations, JaCoCo coverage gate met (97.35% instructions / 97.3% branches, well above the 80% gate). Sprint 3 Batch 1 (Ledger + Contributions backend: mark-paid, confirm, GET list, LateContributionScheduler, append-only ledger trigger) is now fully verified.

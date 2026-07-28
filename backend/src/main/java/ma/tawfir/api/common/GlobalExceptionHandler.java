@@ -59,6 +59,11 @@ public class GlobalExceptionHandler {
 		return build(HttpStatus.NOT_FOUND, ex.getMessage());
 	}
 
+	@ExceptionHandler(NotFoundException.class)
+	public ResponseEntity<ApiError> handleNotFound(NotFoundException ex) {
+		return build(HttpStatus.NOT_FOUND, ex.getMessage());
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiError> handleUnexpected(Exception ex) {
 		log.error("Unhandled exception", ex);
