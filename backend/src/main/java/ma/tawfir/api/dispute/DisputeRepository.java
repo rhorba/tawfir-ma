@@ -28,4 +28,9 @@ public interface DisputeRepository extends JpaRepository<Dispute, UUID> {
 			@Param("resolverId") UUID resolverId, @Param("resolutionReason") String resolutionReason,
 			@Param("resolvedAt") Instant resolvedAt);
 
+	long countByStatus(DisputeStatus status);
+
+	@Query("SELECT DISTINCT d.groupId FROM Dispute d WHERE d.status = :status")
+	List<UUID> findDistinctGroupIdsByStatus(@Param("status") DisputeStatus status);
+
 }

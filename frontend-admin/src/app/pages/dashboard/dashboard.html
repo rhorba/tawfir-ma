@@ -1,22 +1,28 @@
 <main class="dashboard-page">
   <h1>Tawfir Admin</h1>
 
-  <div class="metrics-grid">
-    <mat-card>
-      <mat-card-header><mat-card-title>Active Groups</mat-card-title></mat-card-header>
-      <mat-card-content>{{ metrics().activeGroups }}</mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-header><mat-card-title>Default Rate</mat-card-title></mat-card-header>
-      <mat-card-content>{{ metrics().defaultRatePercent }}%</mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-header><mat-card-title>Open Disputes</mat-card-title></mat-card-header>
-      <mat-card-content>{{ metrics().openDisputes }}</mat-card-content>
-    </mat-card>
-    <mat-card>
-      <mat-card-header><mat-card-title>At-Risk Groups</mat-card-title></mat-card-header>
-      <mat-card-content>{{ metrics().atRiskGroups }}</mat-card-content>
-    </mat-card>
-  </div>
+  @if (loading()) {
+    <p>Loading platform metrics...</p>
+  } @else if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  } @else if (metrics(); as m) {
+    <div class="metrics-grid">
+      <mat-card>
+        <mat-card-header><mat-card-title>Active Groups</mat-card-title></mat-card-header>
+        <mat-card-content>{{ m.activeGroups }}</mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-header><mat-card-title>Default Rate</mat-card-title></mat-card-header>
+        <mat-card-content>{{ m.defaultRatePercent }}%</mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-header><mat-card-title>Open Disputes</mat-card-title></mat-card-header>
+        <mat-card-content>{{ m.openDisputes }}</mat-card-content>
+      </mat-card>
+      <mat-card>
+        <mat-card-header><mat-card-title>At-Risk Groups</mat-card-title></mat-card-header>
+        <mat-card-content>{{ m.atRiskGroups }}</mat-card-content>
+      </mat-card>
+    </div>
+  }
 </main>

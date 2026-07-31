@@ -292,6 +292,8 @@ Scenario: Member cannot call an Admin-only endpoint
 **Technical Notes**: `GET /api/v1/admin/groups`, `GET /api/v1/admin/metrics`, `GET /api/v1/admin/disputes`. `@PreAuthorize` role check tested explicitly, not just frontend-hidden (security doc STRIDE — Elevation of Privilege).
 **Dependencies**: Epic 4, Epic 5 (needs real data to aggregate).
 
+**Sprint 5 Batch 2 implementation note (2026-07-31, see .logs/decisions.md)**: built against Epic 2/3/5 data already in place rather than waiting on Epic 4 (still blocked on SDR-3) — `defaultRatePercent`/`atRiskGroups` computed from contribution lateness + open disputes, no payout-execution data involved. Role check uses this codebase's established manual `requireAdmin(Authentication)` pattern (see `MfaController`/`GroupController`), not `@PreAuthorize` — no `@EnableMethodSecurity` is configured anywhere in this project.
+
 ## Epic 7: Savings History (API contract only — Phase 2 consumption deferred)
 
 ### Story 7.1: Record savings history snapshot

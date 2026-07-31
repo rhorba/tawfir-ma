@@ -105,6 +105,13 @@ public class DisputeService {
 			.toList();
 	}
 
+	/** Platform-wide, unscoped listing for the admin dashboard (story 6.1) — caller must already be admin-checked. */
+	public List<DisputeResponse> listAll() {
+		return disputeRepository.findAll().stream()
+			.map(this::toResponse)
+			.toList();
+	}
+
 	private void requireOrganizer(UUID groupId, UUID userId) {
 		GroupMembership membership = membershipRepository.findByGroupIdAndUserId(groupId, userId)
 			.orElseThrow(() -> new ForbiddenException("You are not a member of this group"));

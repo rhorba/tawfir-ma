@@ -32,4 +32,15 @@ public interface ContributionScheduleRepository extends JpaRepository<Contributi
 		+ "WHERE c.status = ma.tawfir.api.group.entity.ContributionStatus.PENDING AND c.dueDate < :today")
 	int flagOverdueAsLate(@Param("today") LocalDate today);
 
+	/**
+	 * Admin default-rate metric (story 6.1, decisions.md 2026-07-31): counts
+	 * among past-due rows only, in the specific status(es) requested.
+	 */
+	long countByDueDateBeforeAndStatus(LocalDate dueDate, ContributionStatus status);
+
+	long countByDueDateBeforeAndStatusIn(LocalDate dueDate, Collection<ContributionStatus> statuses);
+
+	@Query("SELECT DISTINCT c.groupId FROM ContributionSchedule c WHERE c.status = :status")
+	List<UUID> findDistinctGroupIdsByStatus(@Param("status") ContributionStatus status);
+
 }
