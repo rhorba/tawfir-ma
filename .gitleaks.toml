@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+# False positives only — each entry must be a specific, justified literal/pattern,
+# never a broad path or rule exemption.
+[[allowlist]]
+description = "RFC 6238 Appendix B public TOTP test vector (backend/.../TotpGeneratorTest.java) — a published spec constant, not a real secret."
+regexes = [
+  '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''',
+]
