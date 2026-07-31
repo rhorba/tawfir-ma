@@ -113,6 +113,11 @@ CREATE TABLE contribution_schedules (
   user_id       UUID NOT NULL REFERENCES users(id),
   due_date      DATE NOT NULL,
   status        VARCHAR(20) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'MARKED_PAID', 'CONFIRMED', 'LATE', 'DISPUTED')),
+  was_late      BOOLEAN NOT NULL DEFAULT FALSE,  -- added V8 (Sprint 5 Batch 3, story 7.1): set once by
+                                                  -- LateContributionScheduler, never cleared — `status`
+                                                  -- alone can't answer "was this ever late" once it
+                                                  -- reaches MARKED_PAID/CONFIRMED; needed for savings
+                                                  -- history's on_time_rate below.
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (group_id, cycle_number, user_id)
 );
@@ -161,6 +166,10 @@ CREATE TABLE disputes (
 );
 
 -- Table: savings_history_snapshots (derived, feeds Kasb export — Phase 2)
+-- Implemented V8 (Sprint 5 Batch 3, story 7.1): one row appended per member
+-- each time a group cycle fully completes (all that cycle's contributions
+-- CONFIRMED) — see decisions.md 2026-07-31 for why "cycle completion" is a
+-- proxy signal here rather than real payout execution (Epic 4 not built yet).
 CREATE TABLE savings_history_snapshots (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id           UUID NOT NULL REFERENCES users(id),

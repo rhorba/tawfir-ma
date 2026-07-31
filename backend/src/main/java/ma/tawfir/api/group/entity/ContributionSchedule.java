@@ -41,6 +41,15 @@ public class ContributionSchedule {
 	@Column(nullable = false, length = 20)
 	private ContributionStatus status;
 
+	/**
+	 * Set once by {@code ContributionScheduleRepository#flagOverdueAsLate} and
+	 * never cleared — the current {@code status} alone can't answer "was this
+	 * ever late" once it reaches MARKED_PAID/CONFIRMED, but savings-history's
+	 * on-time rate (story 7.1) needs that history preserved.
+	 */
+	@Column(name = "was_late", nullable = false)
+	private boolean wasLate;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 

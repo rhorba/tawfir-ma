@@ -28,7 +28,8 @@ public interface ContributionScheduleRepository extends JpaRepository<Contributi
 			@Param("to") ContributionStatus to);
 
 	@Modifying(clearAutomatically = true)
-	@Query("UPDATE ContributionSchedule c SET c.status = ma.tawfir.api.group.entity.ContributionStatus.LATE "
+	@Query("UPDATE ContributionSchedule c SET c.status = ma.tawfir.api.group.entity.ContributionStatus.LATE, "
+		+ "c.wasLate = true "
 		+ "WHERE c.status = ma.tawfir.api.group.entity.ContributionStatus.PENDING AND c.dueDate < :today")
 	int flagOverdueAsLate(@Param("today") LocalDate today);
 
