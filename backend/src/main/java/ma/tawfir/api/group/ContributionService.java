@@ -1,5 +1,6 @@
 package ma.tawfir.api.group;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +31,14 @@ public class ContributionService {
 
 	private static final Set<ContributionStatus> PAYABLE_STATUSES =
 		Set.of(ContributionStatus.PENDING, ContributionStatus.LATE);
+
+	/**
+	 * A real CMI payment confirmation (story 3.3) is stronger evidence than a
+	 * member's self-reported "I paid" — it doesn't need MARKED_PAID first,
+	 * unlike the organizer-confirm path (decisions.md 2026-07-31).
+	 */
+	private static final Set<ContributionStatus> WEBHOOK_CONFIRMABLE_STATUSES =
+		Set.of(ContributionStatus.PENDING, ContributionStatus.LATE, ContributionStatus.MARKED_PAID);
 
 	private final ContributionScheduleRepository contributionScheduleRepository;
 	private final GroupMembershipRepository membershipRepository;
@@ -86,6 +95,45 @@ public class ContributionService {
 		return toResponse(requireSchedule(groupId, scheduleId));
 	}
 
+	/**
+	 * Story 3.3: a signed CMI webhook confirming a payment. No acting user in
+	 * the request-auth sense (system-to-system, verified by
+	 * {@code CmiSignatureVerifier} before this is called) — the ledger entry's
+	 * actor is the payer themself, since the entry is fundamentally about
+	 * their payment. Idempotent: replaying a webhook for an already-CONFIRMED
+	 * contribution is a no-op, not an error (test-strategy §4).
+	 */
+	@Transactional
+	public ContributionResponse confirmViaWebhook(UUID scheduleId, BigDecimal reportedAmount) {
+		ContributionSchedule schedule = contributionScheduleRepository.findById(scheduleId)
+			.orElseThrow(() -> new NotFoundException("Contribution not found: " + scheduleId));
+
+		if (schedule.getStatus() == ContributionStatus.CONFIRMED) {
+			return toResponse(schedule);
+		}
+
+		Group group = groupRepository.findById(schedule.getGroupId())
+			.orElseThrow(() -> new NotFoundException("Group not found: " + schedule.getGroupId()));
+		if (reportedAmount.compareTo(group.getContributionAmount()) != 0) {
+			throw new ValidationException("Webhook amount does not match the group's contribution amount");
+		}
+
+		int updated = contributionScheduleRepository.compareAndSetStatus(
+			scheduleId, WEBHOOK_CONFIRMABLE_STATUSES, ContributionStatus.CONFIRMED);
+		if (updated == 0) {
+			// Raced with another confirm path (organizer-confirm or a concurrent webhook
+			// replay) that got there first — already CONFIRMED, so this is still a no-op.
+			return toResponse(requireScheduleById(scheduleId));
+		}
+
+		ledgerEntryRepository.save(LedgerEntry.contribution(
+			schedule.getGroupId(), scheduleId, schedule.getUserId(), group.getContributionAmount(), LedgerSource.CMI_WEBHOOK));
+
+		savingsHistoryService.recordSnapshotsIfCycleComplete(schedule.getGroupId(), schedule.getCycleNumber());
+
+		return toResponse(requireScheduleById(scheduleId));
+	}
+
 	public List<ContributionResponse> listForGroup(UUID actingUserId, UUID groupId, boolean isAdmin) {
 		if (!isAdmin && !membershipRepository.existsByGroupIdAndUserId(groupId, actingUserId)) {
 			throw new ForbiddenException("You are not a member of this group");
@@ -104,12 +152,16 @@ public class ContributionService {
 	}
 
 	private ContributionSchedule requireSchedule(UUID groupId, UUID scheduleId) {
-		ContributionSchedule schedule = contributionScheduleRepository.findById(scheduleId)
-			.orElseThrow(() -> new NotFoundException("Contribution not found: " + scheduleId));
+		ContributionSchedule schedule = requireScheduleById(scheduleId);
 		if (!schedule.getGroupId().equals(groupId)) {
 			throw new NotFoundException("Contribution not found: " + scheduleId);
 		}
 		return schedule;
+	}
+
+	private ContributionSchedule requireScheduleById(UUID scheduleId) {
+		return contributionScheduleRepository.findById(scheduleId)
+			.orElseThrow(() -> new NotFoundException("Contribution not found: " + scheduleId));
 	}
 
 	private ContributionResponse toResponse(ContributionSchedule schedule) {

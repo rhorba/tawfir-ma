@@ -270,3 +270,34 @@ Sprint 5 is now fully built: Batch 1 (Admin MFA), Batch 2 (Admin dashboard), Bat
 
 ## 2026-07-31 — Sprint 5 Batch 3 SHIP phase
 PUSH: commit c62105f pushed to origin/feature/sprint-2-auth-groups. CI run 30655968515: GREEN on first try (all 5 jobs — Backend, Frontend Admin, Security scan, Frontend Member, Build Docker images). Sprint 5 Batch 3 (Savings history snapshot, story 7.1) SHIP phase complete. Sprint 5 is now fully closed: all 3 batches (Admin MFA, Admin dashboard, Savings history) shipped and green.
+
+## 2026-07-31 — Sprint 4 UNDERSTAND + BRAINSTORM + PLAN
+User confirmed: unblock Sprint 4 (stories 3.3, 4.1, 4.2, 4.3 — CMI webhook integration + payouts) by building against the existing `MockCmiClient`/`CMI_WEBHOOK_SECRET` (both already scaffolded since Sprint 2 Batch 1) — real HMAC webhook signature verification is built for real, but money movement itself stays simulated until SDR-3 (custody-model/BAM licensing) is resolved, same precedent as OTP being mocked throughout. This unblocks the code paths without needing the legal decision first.
+
+Plan (2 batches, dependency-ordered since 4.3 explicitly shares 3.3's webhook infra):
+📋 BATCH 1 — Story 3.3 (CMI webhook auto-confirms contribution) + shared webhook infra
+  - `CmiSignatureVerifier`: HMAC-SHA256 over the raw request body using `CMI_WEBHOOK_SECRET` (already bound via `TawfirProperties.Payment.webhookSecret`), constant-time compare (`MessageDigest.isEqual`), header `X-Cmi-Signature`
+  - `POST /api/v1/webhooks/cmi/payment-confirmation` — invalid/missing signature -> 401; valid -> confirms the contribution (CAS from {PENDING, LATE, MARKED_PAID} -> CONFIRMED, stronger than organizer-confirm which requires MARKED_PAID first, since a real payment confirmation is stronger evidence); LedgerSource.CMI_WEBHOOK; idempotent (already-CONFIRMED replay is a no-op, not an error); triggers the same savings-history snapshot hook as organizer-confirm
+  - `/api/v1/webhooks/**` added to SecurityConfig's permitAll (system-to-system, no JWT — authenticated by signature instead)
+
+📋 BATCH 2 — Stories 4.1 (auto payout cron), 4.2 (organizer manual override), 4.3 (CMI payout-confirmation webhook)
+  - New `LedgerSource.SYSTEM_SCHEDULED` value (migration, widens the `source` CHECK constraint) for cron-auto-executed payouts — reusing `ORGANIZER_CONFIRMED` for 4.2's manual override (an organizer action, same semantic family) and `CMI_WEBHOOK` for 4.3 (already fits)
+  - `PayoutScheduler` (mirrors `LateContributionScheduler`'s `@Scheduled` pattern): for PENDING payouts past `scheduled_date` with every contribution for that group+cycle CONFIRMED, calls `CmiClient.initiateTransfer`, sets EXECUTED, appends a PAYOUT ledger entry (SYSTEM_SCHEDULED). Not-ready payouts are left PENDING, no notification delivery (no channel decided — same accepted-TODO precedent as story 3.4) — organizer sees it's still PENDING and can manually override.
+  - `POST /api/v1/groups/:id/payouts/:payoutId/execute` (ORGANIZER-only) — same execute logic, target status MANUAL_OVERRIDE, LedgerSource.ORGANIZER_CONFIRMED
+  - `POST /api/v1/webhooks/cmi/payout-confirmation` — same HMAC pattern as Batch 1; idempotent if already EXECUTED/MANUAL_OVERRIDE; otherwise executes PENDING -> EXECUTED, LedgerSource.CMI_WEBHOOK
+  - `PayoutStatus.FAILED`: set if `CmiClient.initiateTransfer` throws, logged, no ledger entry, cron continues to the next payout (no retry queue — accepted MVP limitation)
+
+No new env vars (rule 10) — `CMI_PROVIDER`/`CMI_WEBHOOK_SECRET`/`CMI_API_KEY` already in .env.example since Sprint 2 Batch 1. Each batch: VERIFY (tests + 80% coverage gate) before moving on; CI monitored red→green per rule 11; push at batch end per rule 7 precedent.
+
+## 2026-07-31 — Sprint 4 Batch 1 EXECUTE + VERIFY (CMI webhook infra + story 3.3)
+Document-first per rule 12: webhook signature contract and the WEBHOOK_CONFIRMABLE_STATUSES/idempotency design logged in decisions.md before writing code (no real CMI API spec exists — this is a from-scratch, documented contract).
+
+MILESTONE: `CmiSignatureVerifier` (hex HMAC-SHA256 over the raw body, `MessageDigest.isEqual` constant-time compare), `InvalidWebhookSignatureException` -> 401, `CmiWebhookController` (`POST /api/v1/webhooks/cmi/payment-confirmation`, public in SecurityConfig — system-authenticated by signature, not JWT). `ContributionService.confirmViaWebhook` — transitions from {PENDING, LATE, MARKED_PAID} (broader than organizer-confirm's MARKED_PAID-only, since a real payment confirmation is stronger evidence than a self-report), validates the webhook's reported amount against the group's contribution amount, idempotent on replay (already-CONFIRMED is a no-op), triggers the same savings-history snapshot hook as organizer-confirm.
+
+BUGS CAUGHT DURING VERIFY (both fixed before ship, neither is a real CMI issue — pure Spring/Maven plumbing gaps):
+1. `com.fasterxml.jackson.databind` wasn't resolvable at compile scope — `spring-boot-starter-webmvc` in this project only pulls `jackson-databind` in transitively at *runtime* scope (via `jjwt-jackson`), so any main-source class importing Jackson directly failed to compile. Fixed by adding an explicit `jackson-databind` dependency to `backend/pom.xml` (version managed by the parent BOM).
+2. Even after that fix, `@WebMvcTest`'s default auto-configuration set doesn't expose a Spring-managed `ObjectMapper` bean for constructor injection (a `NoSuchBeanDefinitionException` in the slice test, `JacksonAutoConfiguration` being present in the customizer list notwithstanding). Sidestepped rather than chasing Boot's autoconfiguration internals further: `CmiWebhookController` now owns a private `new ObjectMapper()` instance directly instead of injecting the shared bean — this controller's parsing needs are narrow and don't benefit from the app-wide Jackson customization anyway.
+3. (Recurring class of issue, now the third time) `@WebMvcTest` controller slice tests need a `@MockitoBean JwtService` even when the controller itself doesn't use it, because `JwtAuthenticationFilter` is a real `@Component` picked up regardless of excluded security autoconfiguration — added to `CmiWebhookControllerTest` matching the same fix applied to `MfaControllerTest`/`AdminControllerTest`.
+
+VERIFY: `mvnw verify` (JDK 21, Docker) — BUILD SUCCESS, 202/202 tests pass (16 new: CmiSignatureVerifierTest 6, CmiWebhookControllerTest 4, CmiPaymentWebhookIntegrationTest 2 full-stack Testcontainers covering both Gherkin scenarios — valid-signature auto-confirm + replay-idempotency, invalid-signature-rejected-no-ledger-entry — plus 4 new ContributionServiceTest cases for confirmViaWebhook), 0 Checkstyle violations, JaCoCo gate met.
+Not yet done: Batch 2 (stories 4.1 auto payout cron, 4.2 organizer manual override, 4.3 CMI payout-confirmation webhook) — the last batch of Sprint 4.

@@ -6,6 +6,7 @@ import ma.tawfir.api.auth.InvalidTokenException;
 import ma.tawfir.api.auth.RateLimitExceededException;
 import ma.tawfir.api.group.GroupNotFoundException;
 import ma.tawfir.api.mfa.InvalidMfaCodeException;
+import ma.tawfir.api.webhook.InvalidWebhookSignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -42,6 +43,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(InvalidMfaCodeException.class)
 	public ResponseEntity<ApiError> handleInvalidMfaCode(InvalidMfaCodeException ex) {
+		return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
+	}
+
+	@ExceptionHandler(InvalidWebhookSignatureException.class)
+	public ResponseEntity<ApiError> handleInvalidWebhookSignature(InvalidWebhookSignatureException ex) {
 		return build(HttpStatus.UNAUTHORIZED, ex.getMessage());
 	}
 

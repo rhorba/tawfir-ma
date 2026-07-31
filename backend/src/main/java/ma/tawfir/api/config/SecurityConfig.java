@@ -37,6 +37,9 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/actuator/health", "/actuator/info").permitAll()
 				.requestMatchers("/api/v1/auth/**").permitAll()
+				// System-to-system CMI callbacks — authenticated by HMAC signature
+				// (CmiSignatureVerifier), not JWT (stories 3.3/4.3).
+				.requestMatchers("/api/v1/webhooks/**").permitAll()
 				.anyRequest().authenticated()
 			)
 			// Without this, Spring Security's default for a request with no authentication

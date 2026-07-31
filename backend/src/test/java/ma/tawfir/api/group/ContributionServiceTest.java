@@ -213,4 +213,74 @@ class ContributionServiceTest {
 		verify(membershipRepository, never()).existsByGroupIdAndUserId(any(), any());
 	}
 
+	@Test
+	void confirmViaWebhook_pendingContribution_confirmsWithoutRequiringMarkedPaidFirst() {
+		UUID groupId = UUID.randomUUID();
+		UUID scheduleId = UUID.randomUUID();
+		UUID payerId = UUID.randomUUID();
+		when(contributionScheduleRepository.findById(scheduleId))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.PENDING)))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.CONFIRMED)));
+		Group group = new Group("Daret", payerId, BigDecimal.valueOf(200), Frequency.MONTHLY, (short) 1, PayoutOrderMode.MANUAL);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+		when(contributionScheduleRepository.compareAndSetStatus(eq(scheduleId), anySet(), eq(ContributionStatus.CONFIRMED)))
+			.thenReturn(1);
+
+		ContributionResponse response = contributionService.confirmViaWebhook(scheduleId, BigDecimal.valueOf(200));
+
+		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
+		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
+		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
+	}
+
+	@Test
+	void confirmViaWebhook_alreadyConfirmed_isIdempotentNoOp() {
+		UUID groupId = UUID.randomUUID();
+		UUID scheduleId = UUID.randomUUID();
+		UUID payerId = UUID.randomUUID();
+		when(contributionScheduleRepository.findById(scheduleId))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.CONFIRMED)));
+
+		ContributionResponse response = contributionService.confirmViaWebhook(scheduleId, BigDecimal.valueOf(200));
+
+		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
+		verify(ledgerEntryRepository, never()).save(any());
+		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
+	}
+
+	@Test
+	void confirmViaWebhook_amountMismatch_throwsValidationWithoutAppendingLedgerEntry() {
+		UUID groupId = UUID.randomUUID();
+		UUID scheduleId = UUID.randomUUID();
+		UUID payerId = UUID.randomUUID();
+		when(contributionScheduleRepository.findById(scheduleId))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.PENDING)));
+		Group group = new Group("Daret", payerId, BigDecimal.valueOf(200), Frequency.MONTHLY, (short) 1, PayoutOrderMode.MANUAL);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+
+		assertThatThrownBy(() -> contributionService.confirmViaWebhook(scheduleId, BigDecimal.valueOf(999)))
+			.isInstanceOf(ValidationException.class);
+		verify(contributionScheduleRepository, never()).compareAndSetStatus(any(), any(), any());
+		verify(ledgerEntryRepository, never()).save(any());
+	}
+
+	@Test
+	void confirmViaWebhook_racedAgainstAnotherConfirm_returnsAlreadyConfirmedWithoutError() {
+		UUID groupId = UUID.randomUUID();
+		UUID scheduleId = UUID.randomUUID();
+		UUID payerId = UUID.randomUUID();
+		when(contributionScheduleRepository.findById(scheduleId))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.MARKED_PAID)))
+			.thenReturn(Optional.of(schedule(groupId, scheduleId, payerId, ContributionStatus.CONFIRMED)));
+		Group group = new Group("Daret", payerId, BigDecimal.valueOf(200), Frequency.MONTHLY, (short) 1, PayoutOrderMode.MANUAL);
+		when(groupRepository.findById(groupId)).thenReturn(Optional.of(group));
+		when(contributionScheduleRepository.compareAndSetStatus(eq(scheduleId), anySet(), eq(ContributionStatus.CONFIRMED)))
+			.thenReturn(0);
+
+		ContributionResponse response = contributionService.confirmViaWebhook(scheduleId, BigDecimal.valueOf(200));
+
+		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
+		verify(ledgerEntryRepository, never()).save(any());
+	}
+
 }
