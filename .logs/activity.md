@@ -193,3 +193,48 @@ Second run got further (auth, group create/finalize, mark-paid, confirm all pass
 Third run passed clean. Investigated why `test-results/` had no `.webm` despite `video: 'on'` in `playwright.config.ts`: that project-level option only auto-wires into the built-in `context`/`page` fixtures (confirmed by reading `_contextFactory` in `node_modules/playwright/lib/index.js`) — since this spec drives two independent logged-in users via manual `browser.newContext()` calls, video was silently never being recorded, on this run or the original 2026-07-28 failing run either (its `test-results/` folder had a `trace.zip` but no video, because tracing is wired at the connection level and isn't subject to the same limitation). Fixed by passing `recordVideo: { dir: 'test-results/videos' }` explicitly on both `newContext()` calls, then copying each context's finished video out to `.recordings/` after `context.close()`.
 
 Final run: 1 passed, both organizer- and member-perspective videos produced (`.recordings/v3-2026-07-30-organizer.webm`, `.recordings/v3-2026-07-30-member.webm` — two files instead of rule 9's singular naming since the test necessarily uses two separate browser contexts/users and there is no single native recording that covers both simultaneously). `e2e/` (minus `node_modules/` and `test-results/`, both newly added to `.gitignore`) and `.recordings/` committed. Docker stack and the `vite` dev server used for this were torn down cleanly afterward. Rule 9 is now fully satisfied for Sprint 3 — this closes out the last open item from Sprint 3, which is fully shipped and closed.
+
+## 2026-07-31 — Sprint 3 close: outstanding push + CI monitoring (rule 7 / rule 11)
+Resumed session; prior session had stopped before pushing commits `5431ebf` and `0724b76` (rule 9 completion). PUSH: `git push origin feature/sprint-2-auth-groups` — `ce5cab3..61945cb`. CI run 30609342346: GREEN on first try (all 5 jobs — Backend, Frontend Admin, Security scan, Frontend Member, Build Docker images; only non-blocking Node 20 deprecation annotations). Rule 7 now satisfied. Sprint 3 is 100% closed with nothing outstanding.
+
+## 2026-07-31 — Sprint 5 UNDERSTAND + BRAINSTORM
+User picked Sprint 5 (1.4 Admin MFA, 6.1 Admin dashboard, 7.1 Savings snapshot) over Sprint 4 (still blocked on SDR-3). Flagged that stories-tawfir.md lists Epic 4 (payout execution) as a dependency for both 6.1 and 7.1, and Epic 4 is itself blocked on SDR-3 — user confirmed: build against data that already exists now (contributions/ledger/disputes), rather than waiting or skipping.
+
+Brainstorm — user picked the simplest (🟢) option for all three, per YAGNI:
+- 1.4: TOTP only (RFC 6238), no backup codes; lockout recovery is DB-level ops action, not self-service.
+- 6.1: GET /admin/groups, /admin/metrics, /admin/disputes aggregating existing group/contribution/dispute data + Angular dashboard page. Explicitly closes the long-open risk (flagged since Sprint 2 Batch 2b) that ADMIN role enforcement was client-side/UX-only — this adds real backend `@PreAuthorize("hasRole('ADMIN')")`.
+- 7.1: savings_history_snapshot recorded when a cycle's last contribution reaches CONFIRMED (proxy for "cycle completion" since Epic 4's real payout-executed event doesn't exist yet); GET /users/:id/savings-history exposed now. Flagged as a documented proxy to revisit once Epic 4 lands.
+
+## 2026-07-31 — Sprint 5 PLAN phase
+Env vars (rule 10): none new needed — reusing existing `PII_ENCRYPTION_KEY` (already reserved in .env.example for deferred phone-number encryption) for TOTP-secret app-layer AES-GCM encryption, since a secret only needs encrypt/decrypt, not the equality-lookup blind-index that phone_number needs.
+
+📋 BATCH 1: Admin MFA (Story 1.4)
+  1.1 V7 migration: users.totp_secret (nullable, AES-GCM encrypted at app layer), users.totp_enabled_at (nullable)
+  1.2 POST /api/v1/admin/mfa/setup (ADMIN-only) — generates TOTP secret, returns provisioning URI, stores encrypted+inactive until first verify
+  1.3 POST /api/v1/admin/mfa/verify — confirms first code, sets totp_enabled_at
+  1.4 Login flow change: after /otp/verify, ADMIN accounts with totp_enabled_at set get a short-lived mfa-pending token instead of full JWT; POST /api/v1/auth/mfa/verify exchanges a valid TOTP code + pending token for the real access/refresh pair
+  1.5 Tests: setup, verify-activates, login-requires-mfa-when-enabled, wrong-code-rejected, non-admin-403
+
+📋 BATCH 2: Admin dashboard (Story 6.1)
+  2.1 GET /api/v1/admin/groups — all groups, status, member count, cycle progress
+  2.2 GET /api/v1/admin/metrics — group counts by status, contribution completion/late rate, open dispute count
+  2.3 GET /api/v1/admin/disputes — all disputes platform-wide (unscoped)
+  2.4 `@PreAuthorize("hasRole('ADMIN')")` on all three + explicit 403-for-MEMBER test — closes the open risk (logged since Sprint 2 Batch 2b) that admin-role enforcement was client-side only
+  2.5 Angular: admin dashboard page wired to the 3 endpoints, replacing the current placeholder
+  2.6 Tests: controller slice + full-stack 403 check
+
+📋 BATCH 3: Savings history snapshot (Story 7.1)
+  3.1 V8 migration: savings_history_snapshots (per database-tawfir.md §3, schema already specified)
+  3.2 On contribution confirm: if it's the group's last PENDING/LATE→CONFIRMED transition for that cycle, insert one snapshot row per member (cycles_completed/on_time_rate/disputes_involved) — documented as a proxy for real cycle-completion pending Epic 4
+  3.3 GET /api/v1/users/:id/savings-history — self or ADMIN only
+  3.4 Tests: snapshot fires only on last confirm, self/admin access-scoping enforced
+
+Each batch: VERIFY (tests + 80% coverage gate) before moving on; CI monitored red→green per rule 11; PUSH at sprint end per rule 7. Awaiting user confirmation before EXECUTE (gate per rule 5).
+
+## 2026-07-31 — Sprint 5 Batch 1 EXECUTE + VERIFY (Admin TOTP MFA, story 1.4)
+MILESTONE: V7 migration (`users.totp_secret`, `totp_enabled_at`, `mfa_failed_attempts`, `mfa_locked_until`). `AesGcmEncryptor` (AES-256-GCM, SHA-256-derived key from `PII_ENCRYPTION_KEY`, random IV per encryption) — first consumer of that previously-reserved env var. `TotpGenerator` — hand-rolled RFC 6238 TOTP (HMAC-SHA1, Base32 per RFC 4648) rather than adding a third-party dependency; verified against the official RFC 6238 Appendix B test vector. `POST /api/v1/admin/mfa/setup` + `/verify` (ADMIN-only, two-phase: a stored-but-unverified secret never satisfies MFA on its own). Login flow: `POST /api/v1/auth/otp/verify` now returns an `mfa_pending`-claimed short-lived token instead of real tokens for MFA-enabled admins (rejected by `JwtAuthenticationFilter` for all normal endpoints); new `POST /api/v1/auth/mfa/verify` exchanges pending-token + code for the real access/refresh pair. Non-MFA users/admins completely unaffected.
+
+SECURITY FINDING CAUGHT DURING VERIFY (fixed before ship, not deferred): neither MFA verify endpoint had any brute-force protection on the 6-digit code — `POST /api/v1/auth/mfa/verify` in particular is public (`/api/v1/auth/**`) and needs only the 5-minute pending token, so it was open to unlimited code-guessing. Since this feature exists specifically to protect the highest-blast-radius accounts, shipping it unthrottled would have defeated the point. Fixed by adding a shared `mfa_failed_attempts`/`mfa_locked_until` pair to `users` (5 wrong attempts → 15 min lockout), mirroring the existing `otp_challenges.attempt_count` pattern already in this codebase; applied to both `MfaService.verify` and `AuthService.verifyMfaLogin`. Documented in database-tawfir.md and security-tawfir.md §3.
+
+VERIFY: `mvnw verify` (JDK 21, Docker running) — BUILD SUCCESS, 162/162 tests pass (41 new: AesGcmEncryptorTest, TotpGeneratorTest, MfaServiceTest incl. lockout, MfaControllerTest, MfaFlowIntegrationTest full-stack Testcontainers, plus AuthService/AuthController/JwtService/JwtAuthenticationFilter updates incl. a login-lockout regression test), 0 Checkstyle violations, JaCoCo gate met.
+Not yet done: Batch 2 (Admin dashboard, story 6.1) and Batch 3 (Savings snapshot, story 7.1) — the remaining two Sprint 5 batches.

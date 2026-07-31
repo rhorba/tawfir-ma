@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -25,6 +26,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
+
+	/** Shared TOTP brute-force threshold/lockout — setup-activation and login-exchange verify alike. */
+	public static final int MAX_MFA_ATTEMPTS = 5;
+	public static final Duration MFA_LOCKOUT_DURATION = Duration.ofMinutes(15);
 
 	@Id
 	@GeneratedValue
@@ -49,6 +54,21 @@ public class User {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	/** AES-GCM encrypted+base64 (AesGcmEncryptor), null until an admin calls the MFA setup endpoint. */
+	@Column(name = "totp_secret")
+	private String totpSecret;
+
+	/** Null until the first successful MFA verify; a stored-but-unverified secret alone is not "enabled". */
+	@Column(name = "totp_enabled_at")
+	private Instant totpEnabledAt;
+
+	/** Shared brute-force counter/lockout for TOTP verification (setup-activation and login-exchange alike). */
+	@Column(name = "mfa_failed_attempts", nullable = false)
+	private short mfaFailedAttempts;
+
+	@Column(name = "mfa_locked_until")
+	private Instant mfaLockedUntil;
+
 	public User(String phoneNumber) {
 		this.phoneNumber = phoneNumber;
 		this.role = Role.MEMBER;
@@ -64,6 +84,39 @@ public class User {
 	@PreUpdate
 	void onUpdate() {
 		this.updatedAt = Instant.now();
+	}
+
+	/** Stores a newly (re-)issued encrypted secret and resets activation — a fresh setup call
+	 * must always be re-verified before it counts as enabled, even if a previous secret was active. */
+	public void setTotpSecret(String encryptedSecret) {
+		this.totpSecret = encryptedSecret;
+		this.totpEnabledAt = null;
+	}
+
+	public void enableTotp() {
+		this.totpEnabledAt = Instant.now();
+	}
+
+	public boolean isMfaEnabled() {
+		return totpEnabledAt != null;
+	}
+
+	public boolean isMfaLocked() {
+		return mfaLockedUntil != null && Instant.now().isBefore(mfaLockedUntil);
+	}
+
+	/** Records a wrong TOTP code; once {@link #MAX_MFA_ATTEMPTS} is reached, locks further attempts out for {@link #MFA_LOCKOUT_DURATION}. */
+	public void recordMfaFailure() {
+		this.mfaFailedAttempts++;
+		if (this.mfaFailedAttempts >= MAX_MFA_ATTEMPTS) {
+			this.mfaLockedUntil = Instant.now().plus(MFA_LOCKOUT_DURATION);
+		}
+	}
+
+	/** A correct TOTP code clears any accumulated failures/lockout. */
+	public void recordMfaSuccess() {
+		this.mfaFailedAttempts = 0;
+		this.mfaLockedUntil = null;
 	}
 
 }

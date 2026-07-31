@@ -11,15 +11,23 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import ma.tawfir.api.auth.dto.MfaPendingResponse;
+import ma.tawfir.api.auth.dto.OtpVerifyResult;
 import ma.tawfir.api.auth.dto.TokenResponse;
 import ma.tawfir.api.auth.entity.OtpChallenge;
 import ma.tawfir.api.auth.entity.RefreshToken;
+import ma.tawfir.api.common.AesGcmEncryptor;
 import ma.tawfir.api.config.TawfirProperties;
+import ma.tawfir.api.mfa.InvalidMfaCodeException;
+import ma.tawfir.api.mfa.TotpGenerator;
 import ma.tawfir.api.otp.OtpProvider;
 import ma.tawfir.api.user.UserRepository;
+import ma.tawfir.api.user.entity.Role;
 import ma.tawfir.api.user.entity.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +55,10 @@ class AuthServiceTest {
 	private PasswordEncoder passwordEncoder;
 	@Mock
 	private RefreshTokenRevocationService revocationService;
+	@Mock
+	private AesGcmEncryptor totpEncryptor;
+	@Mock
+	private TotpGenerator totpGenerator;
 
 	private JwtService jwtService;
 	private AuthService authService;
@@ -55,9 +67,9 @@ class AuthServiceTest {
 	void setUp() {
 		jwtService = mock(JwtService.class);
 		TawfirProperties properties = new TawfirProperties(
-			new TawfirProperties.Jwt("unused-in-this-test", 15, 7), null, null, null);
+			new TawfirProperties.Jwt("unused-in-this-test", 15, 7), null, null, null, null);
 		authService = new AuthService(otpChallengeRepository, refreshTokenRepository, userRepository,
-			otpProvider, jwtService, passwordEncoder, revocationService, properties);
+			otpProvider, jwtService, passwordEncoder, revocationService, totpEncryptor, totpGenerator, properties);
 	}
 
 	@Test
@@ -144,8 +156,10 @@ class AuthServiceTest {
 		when(jwtService.issueAccessToken(any(), eq("MEMBER"))).thenReturn("access-token");
 		when(jwtService.accessTtlSeconds()).thenReturn(900L);
 
-		TokenResponse response = authService.verifyOtp(PHONE, "123456");
+		OtpVerifyResult result = authService.verifyOtp(PHONE, "123456");
 
+		assertThat(result).isInstanceOf(TokenResponse.class);
+		TokenResponse response = (TokenResponse) result;
 		assertThat(response.accessToken()).isEqualTo("access-token");
 		assertThat(response.refreshToken()).isNotBlank();
 		assertThat(response.tokenType()).isEqualTo("Bearer");
@@ -261,6 +275,156 @@ class AuthServiceTest {
 		authService.logout("unknown-raw-token");
 
 		verify(revocationService, never()).revokeFamily(any());
+	}
+
+	@Test
+	void verifyOtp_adminWithMfaEnabled_returnsMfaPendingResponseNotTokens() {
+		OtpChallenge challenge = new OtpChallenge(PHONE, "hash", Instant.now().plusSeconds(300));
+		when(otpChallengeRepository.findTopByPhoneNumberAndConsumedAtIsNullOrderByCreatedAtDesc(PHONE))
+			.thenReturn(Optional.of(challenge));
+		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
+		User admin = new User(PHONE);
+		ReflectionTestUtils.setField(admin, "role", Role.ADMIN);
+		ReflectionTestUtils.setField(admin, "totpEnabledAt", Instant.now());
+		when(userRepository.findByPhoneNumber(PHONE)).thenReturn(Optional.of(admin));
+		when(jwtService.issueMfaPendingToken(any())).thenReturn("pending-token");
+		when(jwtService.mfaPendingTtlSeconds()).thenReturn(300L);
+
+		OtpVerifyResult result = authService.verifyOtp(PHONE, "123456");
+
+		assertThat(result).isInstanceOf(MfaPendingResponse.class);
+		MfaPendingResponse pending = (MfaPendingResponse) result;
+		assertThat(pending.mfaRequired()).isTrue();
+		assertThat(pending.mfaPendingToken()).isEqualTo("pending-token");
+		assertThat(pending.expiresInSeconds()).isEqualTo(300L);
+		verify(jwtService, never()).issueAccessToken(any(), any());
+		verify(refreshTokenRepository, never()).save(any());
+	}
+
+	@Test
+	void verifyOtp_adminWithoutMfaEnabled_stillReturnsTokensDirectly() {
+		OtpChallenge challenge = new OtpChallenge(PHONE, "hash", Instant.now().plusSeconds(300));
+		when(otpChallengeRepository.findTopByPhoneNumberAndConsumedAtIsNullOrderByCreatedAtDesc(PHONE))
+			.thenReturn(Optional.of(challenge));
+		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
+		User admin = new User(PHONE);
+		ReflectionTestUtils.setField(admin, "role", Role.ADMIN);
+		when(userRepository.findByPhoneNumber(PHONE)).thenReturn(Optional.of(admin));
+		when(jwtService.issueAccessToken(any(), eq("ADMIN"))).thenReturn("access-token");
+		when(jwtService.accessTtlSeconds()).thenReturn(900L);
+
+		OtpVerifyResult result = authService.verifyOtp(PHONE, "123456");
+
+		assertThat(result).isInstanceOf(TokenResponse.class);
+		assertThat(((TokenResponse) result).accessToken()).isEqualTo("access-token");
+		verify(jwtService, never()).issueMfaPendingToken(any());
+	}
+
+	@Test
+	void verifyMfaLogin_correctCode_issuesRealTokens() {
+		UUID userId = UUID.randomUUID();
+		User admin = new User(PHONE);
+		ReflectionTestUtils.setField(admin, "id", userId);
+		ReflectionTestUtils.setField(admin, "role", Role.ADMIN);
+		ReflectionTestUtils.setField(admin, "totpEnabledAt", Instant.now());
+		ReflectionTestUtils.setField(admin, "totpSecret", "encrypted-secret");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
+
+		Claims claims = mock(Claims.class);
+		when(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).thenReturn(true);
+		when(claims.getSubject()).thenReturn(userId.toString());
+		when(jwtService.parseAndValidate("pending-token")).thenReturn(claims);
+		when(totpEncryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");
+		when(totpGenerator.verify(eq("plain-secret"), eq("123456"), any())).thenReturn(true);
+		when(jwtService.issueAccessToken(eq(userId), eq("ADMIN"))).thenReturn("access-token");
+		when(jwtService.accessTtlSeconds()).thenReturn(900L);
+
+		TokenResponse response = authService.verifyMfaLogin("pending-token", "123456");
+
+		assertThat(response.accessToken()).isEqualTo("access-token");
+		verify(refreshTokenRepository).save(any(RefreshToken.class));
+	}
+
+	@Test
+	void verifyMfaLogin_wrongCode_throwsInvalidMfaCodeWithoutIssuingTokens() {
+		UUID userId = UUID.randomUUID();
+		User admin = new User(PHONE);
+		ReflectionTestUtils.setField(admin, "id", userId);
+		ReflectionTestUtils.setField(admin, "role", Role.ADMIN);
+		ReflectionTestUtils.setField(admin, "totpEnabledAt", Instant.now());
+		ReflectionTestUtils.setField(admin, "totpSecret", "encrypted-secret");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
+
+		Claims claims = mock(Claims.class);
+		when(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).thenReturn(true);
+		when(claims.getSubject()).thenReturn(userId.toString());
+		when(jwtService.parseAndValidate("pending-token")).thenReturn(claims);
+		when(totpEncryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");
+		when(totpGenerator.verify(eq("plain-secret"), eq("000000"), any())).thenReturn(false);
+
+		assertThatThrownBy(() -> authService.verifyMfaLogin("pending-token", "000000"))
+			.isInstanceOf(InvalidMfaCodeException.class);
+
+		verify(refreshTokenRepository, never()).save(any());
+	}
+
+	@Test
+	void verifyMfaLogin_repeatedWrongCodes_locksOutAfterMaxAttempts() {
+		UUID userId = UUID.randomUUID();
+		User admin = new User(PHONE);
+		ReflectionTestUtils.setField(admin, "id", userId);
+		ReflectionTestUtils.setField(admin, "role", Role.ADMIN);
+		ReflectionTestUtils.setField(admin, "totpEnabledAt", Instant.now());
+		ReflectionTestUtils.setField(admin, "totpSecret", "encrypted-secret");
+		when(userRepository.findById(userId)).thenReturn(Optional.of(admin));
+
+		Claims claims = mock(Claims.class);
+		when(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).thenReturn(true);
+		when(claims.getSubject()).thenReturn(userId.toString());
+		when(jwtService.parseAndValidate("pending-token")).thenReturn(claims);
+		when(totpEncryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");
+		when(totpGenerator.verify(eq("plain-secret"), eq("000000"), any())).thenReturn(false);
+
+		for (int i = 0; i < User.MAX_MFA_ATTEMPTS; i++) {
+			assertThatThrownBy(() -> authService.verifyMfaLogin("pending-token", "000000"))
+				.isInstanceOf(InvalidMfaCodeException.class);
+		}
+
+		assertThat(admin.isMfaLocked()).isTrue();
+		assertThatThrownBy(() -> authService.verifyMfaLogin("pending-token", "000000"))
+			.isInstanceOf(RateLimitExceededException.class);
+		verify(refreshTokenRepository, never()).save(any());
+	}
+
+	@Test
+	void verifyMfaLogin_tokenMissingMfaPendingClaim_throwsInvalidToken() {
+		Claims claims = mock(Claims.class);
+		when(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).thenReturn(null);
+		when(jwtService.parseAndValidate("not-a-pending-token")).thenReturn(claims);
+
+		assertThatThrownBy(() -> authService.verifyMfaLogin("not-a-pending-token", "123456"))
+			.isInstanceOf(InvalidTokenException.class);
+	}
+
+	@Test
+	void verifyMfaLogin_malformedToken_throwsInvalidToken() {
+		when(jwtService.parseAndValidate("garbage")).thenThrow(new JwtException("bad token"));
+
+		assertThatThrownBy(() -> authService.verifyMfaLogin("garbage", "123456"))
+			.isInstanceOf(InvalidTokenException.class);
+	}
+
+	@Test
+	void verifyMfaLogin_userNoLongerEligible_throwsInvalidToken() {
+		UUID userId = UUID.randomUUID();
+		Claims claims = mock(Claims.class);
+		when(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).thenReturn(true);
+		when(claims.getSubject()).thenReturn(userId.toString());
+		when(jwtService.parseAndValidate("pending-token")).thenReturn(claims);
+		when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+		assertThatThrownBy(() -> authService.verifyMfaLogin("pending-token", "123456"))
+			.isInstanceOf(InvalidTokenException.class);
 	}
 
 }

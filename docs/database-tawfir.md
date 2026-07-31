@@ -38,7 +38,19 @@ CREATE TABLE users (
   national_id   VARCHAR(50),                    -- nullable; 🔶 confirm if required for MVP KYC
   role          VARCHAR(20) NOT NULL DEFAULT 'MEMBER' CHECK (role IN ('MEMBER', 'ADMIN')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  totp_secret     VARCHAR(255),                -- added V7 (Sprint 5 Batch 1, story 1.4): AES-GCM
+                                                  -- encrypted+base64 TOTP secret (AesGcmEncryptor,
+                                                  -- app-layer, reuses PII_ENCRYPTION_KEY); null until
+                                                  -- an admin calls POST /api/v1/admin/mfa/setup
+  totp_enabled_at TIMESTAMPTZ,                   -- added V7; null until the first successful
+                                                  -- POST /api/v1/admin/mfa/verify — a stored-but-
+                                                  -- unverified secret alone never satisfies MFA
+  mfa_failed_attempts SMALLINT NOT NULL DEFAULT 0, -- added V7; shared brute-force counter for both
+                                                  -- MFA verify endpoints (setup-activation + login-
+                                                  -- exchange), mirrors otp_challenges.attempt_count
+  mfa_locked_until    TIMESTAMPTZ                -- added V7; set once mfa_failed_attempts reaches
+                                                  -- MAX_MFA_ATTEMPTS (5); cleared on next correct code
 );
 
 -- Table: otp_challenges

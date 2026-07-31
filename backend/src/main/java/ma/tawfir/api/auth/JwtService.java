@@ -22,6 +22,13 @@ public class JwtService {
 
 	public static final String ROLE_CLAIM = "role";
 
+	/** Set (and only ever true) on the short-lived token issued between OTP verify and TOTP
+	 * verify for MFA-enabled admins (story 1.4) — {@link JwtAuthenticationFilter} refuses to
+	 * authenticate any request bearing this claim, so it can never be used as a real access token. */
+	public static final String MFA_PENDING_CLAIM = "mfa_pending";
+
+	private static final Duration MFA_PENDING_TTL = Duration.ofMinutes(5);
+
 	private final SecretKey signingKey;
 	private final Duration accessTtl;
 
@@ -43,6 +50,21 @@ public class JwtService {
 
 	public long accessTtlSeconds() {
 		return accessTtl.toSeconds();
+	}
+
+	public String issueMfaPendingToken(UUID userId) {
+		Instant now = Instant.now();
+		return Jwts.builder()
+			.subject(userId.toString())
+			.claim(MFA_PENDING_CLAIM, true)
+			.issuedAt(Date.from(now))
+			.expiration(Date.from(now.plus(MFA_PENDING_TTL)))
+			.signWith(signingKey, Jwts.SIG.HS256)
+			.compact();
+	}
+
+	public long mfaPendingTtlSeconds() {
+		return MFA_PENDING_TTL.toSeconds();
 	}
 
 	/**

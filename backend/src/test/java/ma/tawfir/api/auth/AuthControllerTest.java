@@ -5,8 +5,10 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ma.tawfir.api.auth.dto.MfaPendingResponse;
 import ma.tawfir.api.auth.dto.TokenResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,7 +74,47 @@ class AuthControllerTest {
 		mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"phoneNumber\":\"+212612345678\",\"code\":\"123456\"}"))
-			.andExpect(status().isOk());
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.accessToken").value("access"))
+			.andExpect(jsonPath("$.mfaRequired").doesNotExist());
+	}
+
+	@Test
+	void verifyOtp_mfaEnabledAdmin_returns200WithMfaPendingResponseNotTokens() throws Exception {
+		when(authService.verifyOtp(anyString(), anyString()))
+			.thenReturn(MfaPendingResponse.of("pending-token", 300L));
+
+		mockMvc.perform(post("/api/v1/auth/otp/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"phoneNumber\":\"+212612345678\",\"code\":\"123456\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.mfaRequired").value(true))
+			.andExpect(jsonPath("$.mfaPendingToken").value("pending-token"))
+			.andExpect(jsonPath("$.accessToken").doesNotExist());
+	}
+
+	@Test
+	void verifyMfa_validRequest_returns200WithTokens() throws Exception {
+		when(authService.verifyMfaLogin(anyString(), anyString()))
+			.thenReturn(TokenResponse.bearer("access", "refresh", 900L));
+
+		mockMvc.perform(post("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"mfaPendingToken\":\"pending-token\",\"code\":\"123456\"}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.accessToken").value("access"));
+
+		verify(authService).verifyMfaLogin("pending-token", "123456");
+	}
+
+	@Test
+	void verifyMfa_malformedCode_returns400() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/mfa/verify")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"mfaPendingToken\":\"pending-token\",\"code\":\"12\"}"))
+			.andExpect(status().isBadRequest());
+
+		verify(authService, org.mockito.Mockito.never()).verifyMfaLogin(anyString(), anyString());
 	}
 
 	@Test

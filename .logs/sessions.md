@@ -115,3 +115,6 @@ Resumed from the 2026-07-28 pause to finish CLAUDE.md rule 9 (e2e video recordin
 - **Open issues**: None logged.
 - **Open risks**: Unchanged from prior session — custody-model/SDR-3 still blocks Sprint 4, `users.phone_number` plaintext storage needs blind-index encryption before any shared/staging deploy, per-IP OTP rate limiting still an open TODO, admin-app role gate and React GroupDetail's Finalize button are client-side/UX-only (real enforcement is already correctly server-side).
 ---
+
+## 2026-07-31 — SESSION_START (continuation)
+Resumed from prior SESSION_END. Pushed the two outstanding local commits (`5431ebf`, `0724b76`) to `origin/feature/sprint-2-auth-groups` and confirmed CI green (run 30609342346, all 5 jobs) — CLAUDE.md rule 7 now satisfied. Sprint 3 is fully closed with nothing left outstanding. Next: confirm with user whether to plan Sprint 4 (CMI webhook integration — still blocked on the SDR-3 custody-model/BAM licensing decision in risks.md) or Sprint 5 (admin MFA/dashboard/savings history — not blocked).

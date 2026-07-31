@@ -2,8 +2,10 @@ package ma.tawfir.api.auth;
 
 import jakarta.validation.Valid;
 import ma.tawfir.api.auth.dto.LogoutRequest;
+import ma.tawfir.api.auth.dto.MfaLoginVerifyRequest;
 import ma.tawfir.api.auth.dto.OtpRequestRequest;
 import ma.tawfir.api.auth.dto.OtpVerifyRequest;
+import ma.tawfir.api.auth.dto.OtpVerifyResult;
 import ma.tawfir.api.auth.dto.RefreshRequest;
 import ma.tawfir.api.auth.dto.TokenResponse;
 import org.springframework.http.HttpStatus;
@@ -30,8 +32,13 @@ public class AuthController {
 	}
 
 	@PostMapping("/otp/verify")
-	public TokenResponse verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
+	public OtpVerifyResult verifyOtp(@Valid @RequestBody OtpVerifyRequest request) {
 		return authService.verifyOtp(request.phoneNumber(), request.code());
+	}
+
+	@PostMapping("/mfa/verify")
+	public TokenResponse verifyMfa(@Valid @RequestBody MfaLoginVerifyRequest request) {
+		return authService.verifyMfaLogin(request.mfaPendingToken(), request.code());
 	}
 
 	@PostMapping("/refresh")

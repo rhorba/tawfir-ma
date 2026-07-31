@@ -19,7 +19,7 @@ class JwtServiceTest {
 	private static final String SIGNING_KEY = "test-only-signing-key-that-is-at-least-32-bytes-long";
 
 	private final JwtService jwtService = new JwtService(
-		new TawfirProperties(new TawfirProperties.Jwt(SIGNING_KEY, 15, 7), null, null, null));
+		new TawfirProperties(new TawfirProperties.Jwt(SIGNING_KEY, 15, 7), null, null, null, null));
 
 	@Test
 	void issueAndParse_roundTripsSubjectAndRole() {
@@ -70,6 +70,23 @@ class JwtServiceTest {
 	@Test
 	void accessTtlSeconds_reflectsConfiguredMinutes() {
 		assertThat(jwtService.accessTtlSeconds()).isEqualTo(15 * 60);
+	}
+
+	@Test
+	void issueMfaPendingToken_carriesMfaPendingClaimAndSubjectButNoRole() {
+		UUID userId = UUID.randomUUID();
+
+		String token = jwtService.issueMfaPendingToken(userId);
+		Claims claims = jwtService.parseAndValidate(token);
+
+		assertThat(claims.getSubject()).isEqualTo(userId.toString());
+		assertThat(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class)).isTrue();
+		assertThat(claims.get(JwtService.ROLE_CLAIM, String.class)).isNull();
+	}
+
+	@Test
+	void mfaPendingTtlSeconds_isFiveMinutes() {
+		assertThat(jwtService.mfaPendingTtlSeconds()).isEqualTo(5 * 60);
 	}
 
 }

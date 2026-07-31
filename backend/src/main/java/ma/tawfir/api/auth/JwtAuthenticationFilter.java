@@ -41,11 +41,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			String token = header.substring(BEARER_PREFIX.length());
 			try {
 				Claims claims = jwtService.parseAndValidate(token);
-				String role = claims.get(JwtService.ROLE_CLAIM, String.class);
-				List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-				Authentication authentication =
-					new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities);
-				SecurityContextHolder.getContext().setAuthentication(authentication);
+				if (Boolean.TRUE.equals(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class))) {
+					// An MFA-pending token proves OTP was verified but not yet the TOTP step —
+					// it must never authenticate a normal request (story 1.4).
+					SecurityContextHolder.clearContext();
+				} else {
+					String role = claims.get(JwtService.ROLE_CLAIM, String.class);
+					List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+					Authentication authentication =
+						new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities);
+					SecurityContextHolder.getContext().setAuthentication(authentication);
+				}
 			} catch (JwtException | IllegalArgumentException ex) {
 				SecurityContextHolder.clearContext();
 			}

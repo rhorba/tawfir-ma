@@ -1,5 +1,7 @@
 package ma.tawfir.api.auth;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -8,12 +10,18 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.UUID;
+import ma.tawfir.api.auth.dto.MfaPendingResponse;
+import ma.tawfir.api.auth.dto.OtpVerifyResult;
 import ma.tawfir.api.auth.dto.TokenResponse;
 import ma.tawfir.api.auth.entity.OtpChallenge;
 import ma.tawfir.api.auth.entity.RefreshToken;
+import ma.tawfir.api.common.AesGcmEncryptor;
 import ma.tawfir.api.config.TawfirProperties;
+import ma.tawfir.api.mfa.InvalidMfaCodeException;
+import ma.tawfir.api.mfa.TotpGenerator;
 import ma.tawfir.api.otp.OtpProvider;
 import ma.tawfir.api.user.UserRepository;
+import ma.tawfir.api.user.entity.Role;
 import ma.tawfir.api.user.entity.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -42,6 +50,8 @@ public class AuthService {
 	private final JwtService jwtService;
 	private final PasswordEncoder passwordEncoder;
 	private final RefreshTokenRevocationService revocationService;
+	private final AesGcmEncryptor totpEncryptor;
+	private final TotpGenerator totpGenerator;
 	private final Duration refreshTtl;
 	private final SecureRandom secureRandom = new SecureRandom();
 
@@ -52,6 +62,8 @@ public class AuthService {
 			JwtService jwtService,
 			PasswordEncoder passwordEncoder,
 			RefreshTokenRevocationService revocationService,
+			AesGcmEncryptor totpEncryptor,
+			TotpGenerator totpGenerator,
 			TawfirProperties properties) {
 		this.otpChallengeRepository = otpChallengeRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
@@ -60,6 +72,8 @@ public class AuthService {
 		this.jwtService = jwtService;
 		this.passwordEncoder = passwordEncoder;
 		this.revocationService = revocationService;
+		this.totpEncryptor = totpEncryptor;
+		this.totpGenerator = totpGenerator;
 		this.refreshTtl = Duration.ofDays(properties.jwt().refreshTtlDays());
 	}
 
@@ -78,7 +92,7 @@ public class AuthService {
 	}
 
 	@Transactional
-	public TokenResponse verifyOtp(String phoneNumber, String code) {
+	public OtpVerifyResult verifyOtp(String phoneNumber, String code) {
 		OtpChallenge challenge = otpChallengeRepository
 			.findTopByPhoneNumberAndConsumedAtIsNullOrderByCreatedAtDesc(phoneNumber)
 			.orElseThrow(() -> new InvalidOtpException("Invalid or expired code"));
@@ -99,7 +113,57 @@ public class AuthService {
 		User user = userRepository.findByPhoneNumber(phoneNumber)
 			.orElseGet(() -> userRepository.save(new User(phoneNumber)));
 
+		// story 1.4: MFA-enabled admins don't get real tokens straight from OTP verify —
+		// everyone else (the overwhelming majority) is completely unaffected.
+		if (user.getRole() == Role.ADMIN && user.isMfaEnabled()) {
+			String pendingToken = jwtService.issueMfaPendingToken(user.getId());
+			return MfaPendingResponse.of(pendingToken, jwtService.mfaPendingTtlSeconds());
+		}
+
 		return issueTokenPair(user, UUID.randomUUID()).response();
+	}
+
+	/**
+	 * Exchanges a valid MFA-pending token (from {@link #verifyOtp}) plus a correct TOTP code
+	 * for the real access/refresh pair. No explicit "used" tracking for the pending token beyond
+	 * its 5-minute TTL — unlike refresh tokens (long-lived bearer credentials with full family/reuse
+	 * tracking), reusing an already-consumed pending token still requires a currently-valid TOTP
+	 * code to do anything with, so there's no meaningful extra risk a used-flag would close off
+	 * within that short window; matches this batch's YAGNI call (no backup codes, DB-level recovery).
+	 */
+	@Transactional
+	public TokenResponse verifyMfaLogin(String mfaPendingToken, String code) {
+		UUID userId = parseMfaPendingToken(mfaPendingToken);
+		User user = userRepository.findById(userId)
+			.filter(candidate -> candidate.getRole() == Role.ADMIN && candidate.isMfaEnabled())
+			.orElseThrow(() -> new InvalidTokenException("Invalid or expired MFA session"));
+
+		if (user.isMfaLocked()) {
+			throw new RateLimitExceededException("Too many incorrect codes; try again later.");
+		}
+
+		String secret = totpEncryptor.decrypt(user.getTotpSecret());
+		if (!totpGenerator.verify(secret, code, Instant.now())) {
+			user.recordMfaFailure();
+			userRepository.save(user);
+			throw new InvalidMfaCodeException("Invalid TOTP code");
+		}
+
+		user.recordMfaSuccess();
+		userRepository.save(user);
+		return issueTokenPair(user, UUID.randomUUID()).response();
+	}
+
+	private UUID parseMfaPendingToken(String mfaPendingToken) {
+		try {
+			Claims claims = jwtService.parseAndValidate(mfaPendingToken);
+			if (!Boolean.TRUE.equals(claims.get(JwtService.MFA_PENDING_CLAIM, Boolean.class))) {
+				throw new InvalidTokenException("Invalid or expired MFA session");
+			}
+			return UUID.fromString(claims.getSubject());
+		} catch (JwtException | IllegalArgumentException e) {
+			throw new InvalidTokenException("Invalid or expired MFA session");
+		}
 	}
 
 	@Transactional
