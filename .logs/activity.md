@@ -301,3 +301,6 @@ BUGS CAUGHT DURING VERIFY (both fixed before ship, neither is a real CMI issue �
 
 VERIFY: `mvnw verify` (JDK 21, Docker) — BUILD SUCCESS, 202/202 tests pass (16 new: CmiSignatureVerifierTest 6, CmiWebhookControllerTest 4, CmiPaymentWebhookIntegrationTest 2 full-stack Testcontainers covering both Gherkin scenarios — valid-signature auto-confirm + replay-idempotency, invalid-signature-rejected-no-ledger-entry — plus 4 new ContributionServiceTest cases for confirmViaWebhook), 0 Checkstyle violations, JaCoCo gate met.
 Not yet done: Batch 2 (stories 4.1 auto payout cron, 4.2 organizer manual override, 4.3 CMI payout-confirmation webhook) — the last batch of Sprint 4.
+
+## 2026-07-31 — Sprint 4 Batch 1 SHIP phase
+PUSH: commit 52f53ef pushed to origin/feature/sprint-2-auth-groups. CI run 30667827679: GREEN on first try (all 5 jobs — Backend, Frontend Member, Frontend Admin, Security scan, Build Docker images). Sprint 4 Batch 1 (CMI webhook infra + story 3.3) SHIP phase complete. User asked to end the session here. Next session: start Batch 2 (stories 4.1/4.2/4.3, plan already logged above) per the confirmed Sprint 4 plan.
