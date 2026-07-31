@@ -267,3 +267,6 @@ MILESTONE: `GET /api/v1/users/:id/savings-history` (new `UserController`) — se
 
 VERIFY: `mvnw verify` (JDK 21, Docker) — BUILD SUCCESS, 186/186 tests pass (10 new: SavingsHistoryServiceTest 5, SavingsHistoryFlowIntegrationTest 2 full-stack Testcontainers incl. "snapshot only fires once the cycle's last contribution confirms, not the first", UserControllerTest 3), 0 Checkstyle violations, JaCoCo gate met. `ContributionServiceTest` updated for the new constructor dependency + confirm()-calls-savingsHistoryService assertions.
 Sprint 5 is now fully built: Batch 1 (Admin MFA), Batch 2 (Admin dashboard), Batch 3 (Savings history) all done — only SHIP (push+CI) remains for Batch 3.
+
+## 2026-07-31 — Sprint 5 Batch 3 SHIP phase
+PUSH: commit c62105f pushed to origin/feature/sprint-2-auth-groups. CI run 30655968515: GREEN on first try (all 5 jobs — Backend, Frontend Admin, Security scan, Frontend Member, Build Docker images). Sprint 5 Batch 3 (Savings history snapshot, story 7.1) SHIP phase complete. Sprint 5 is now fully closed: all 3 batches (Admin MFA, Admin dashboard, Savings history) shipped and green.
