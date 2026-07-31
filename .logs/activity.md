@@ -255,3 +255,6 @@ Completed the remaining work myself: `AdminControllerTest` (403/200 slice tests 
 
 VERIFY: backend `mvnw verify` (JDK 21, Docker) — BUILD SUCCESS, all tests pass (14 new: AdminServiceTest 4, AdminControllerTest 6, AdminFlowIntegrationTest 4), 0 Checkstyle violations, JaCoCo gate met. frontend-admin — 22/22 tests pass (3 new/updated in dashboard.spec.ts), coverage 86.25% stmts / 89.47% branches / 92% funcs / 87.87% lines (>= 80/70/80/80 gate), ESLint clean, `ng build` succeeds (one pre-existing, non-blocking bundle-size budget warning, +10.55kB over the 500kB initial-bundle budget — not treated as a build failure, not addressed this batch).
 Not yet done: Batch 3 (Savings history snapshot, story 7.1) — the last Sprint 5 batch.
+
+## 2026-07-31 — Sprint 5 Batch 2 SHIP phase
+PUSH: commit 731dbff pushed to origin/feature/sprint-2-auth-groups. CI run 30651958039: GREEN on first try (all 5 jobs — Frontend Member, Backend, Security scan, Frontend Admin, Build Docker images). Sprint 5 Batch 2 (Admin dashboard, story 6.1) SHIP phase complete. Next: Batch 3 (Savings history snapshot, story 7.1) — the last batch of Sprint 5.
