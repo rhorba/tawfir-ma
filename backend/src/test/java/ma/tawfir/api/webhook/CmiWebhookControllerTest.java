@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 import ma.tawfir.api.auth.JwtService;
 import ma.tawfir.api.group.ContributionService;
+import ma.tawfir.api.group.PayoutScheduleService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
@@ -39,6 +40,9 @@ class CmiWebhookControllerTest {
 
 	@MockitoBean
 	private ContributionService contributionService;
+
+	@MockitoBean
+	private PayoutScheduleService payoutScheduleService;
 
 	@MockitoBean
 	private JwtService jwtService;
@@ -95,6 +99,35 @@ class CmiWebhookControllerTest {
 			.andExpect(status().isBadRequest());
 
 		verify(contributionService, never()).confirmViaWebhook(any(), any());
+	}
+
+	@Test
+	void payoutConfirmation_validSignature_confirmsAndReturns200() throws Exception {
+		UUID payoutId = UUID.randomUUID();
+		String body = "{\"payoutScheduleId\":\"" + payoutId + "\",\"amount\":1000,\"providerReference\":\"MOCK-1\"}";
+		when(signatureVerifier.isValid(eq(body), eq("valid-sig"))).thenReturn(true);
+
+		mockMvc.perform(post("/api/v1/webhooks/cmi/payout-confirmation")
+				.header("X-Cmi-Signature", "valid-sig")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
+			.andExpect(status().isOk());
+
+		verify(payoutScheduleService).confirmViaWebhook(payoutId, BigDecimal.valueOf(1000));
+	}
+
+	@Test
+	void payoutConfirmation_invalidSignature_returns401AndDoesNotCallService() throws Exception {
+		String body = "{\"payoutScheduleId\":\"" + UUID.randomUUID() + "\",\"amount\":1000}";
+		when(signatureVerifier.isValid(eq(body), eq("bad-sig"))).thenReturn(false);
+
+		mockMvc.perform(post("/api/v1/webhooks/cmi/payout-confirmation")
+				.header("X-Cmi-Signature", "bad-sig")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(body))
+			.andExpect(status().isUnauthorized());
+
+		verify(payoutScheduleService, never()).confirmViaWebhook(any(), any());
 	}
 
 }

@@ -3,7 +3,9 @@ package ma.tawfir.api.webhook;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import ma.tawfir.api.common.ValidationException;
 import ma.tawfir.api.group.ContributionService;
+import ma.tawfir.api.group.PayoutScheduleService;
 import ma.tawfir.api.webhook.dto.PaymentConfirmationPayload;
+import ma.tawfir.api.webhook.dto.PayoutConfirmationPayload;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,11 +27,14 @@ public class CmiWebhookController {
 
 	private final CmiSignatureVerifier signatureVerifier;
 	private final ContributionService contributionService;
+	private final PayoutScheduleService payoutScheduleService;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
-	public CmiWebhookController(CmiSignatureVerifier signatureVerifier, ContributionService contributionService) {
+	public CmiWebhookController(CmiSignatureVerifier signatureVerifier, ContributionService contributionService,
+			PayoutScheduleService payoutScheduleService) {
 		this.signatureVerifier = signatureVerifier;
 		this.contributionService = contributionService;
+		this.payoutScheduleService = payoutScheduleService;
 	}
 
 	@PostMapping("/payment-confirmation")
@@ -39,6 +44,15 @@ public class CmiWebhookController {
 		requireValidSignature(rawBody, signature);
 		PaymentConfirmationPayload payload = parse(rawBody, PaymentConfirmationPayload.class);
 		contributionService.confirmViaWebhook(payload.contributionScheduleId(), payload.amount());
+	}
+
+	@PostMapping("/payout-confirmation")
+	@ResponseStatus(HttpStatus.OK)
+	public void payoutConfirmation(@RequestBody String rawBody,
+			@RequestHeader(value = "X-Cmi-Signature", required = false) String signature) {
+		requireValidSignature(rawBody, signature);
+		PayoutConfirmationPayload payload = parse(rawBody, PayoutConfirmationPayload.class);
+		payoutScheduleService.confirmViaWebhook(payload.payoutScheduleId(), payload.amount());
 	}
 
 	private void requireValidSignature(String rawBody, String signature) {

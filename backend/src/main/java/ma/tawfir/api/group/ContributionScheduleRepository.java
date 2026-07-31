@@ -44,4 +44,7 @@ public interface ContributionScheduleRepository extends JpaRepository<Contributi
 	@Query("SELECT DISTINCT c.groupId FROM ContributionSchedule c WHERE c.status = :status")
 	List<UUID> findDistinctGroupIdsByStatus(@Param("status") ContributionStatus status);
 
+	/** Story 4.1: a payout is ready once every contribution in its group+cycle is CONFIRMED (count of stragglers is 0). */
+	long countByGroupIdAndCycleNumberAndStatusNot(UUID groupId, short cycleNumber, ContributionStatus status);
+
 }

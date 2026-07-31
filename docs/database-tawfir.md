@@ -144,7 +144,7 @@ CREATE TABLE ledger_entries (
   payout_schedule_id      UUID REFERENCES payout_schedules(id),
   actor_user_id           UUID NOT NULL REFERENCES users(id),  -- who triggered this entry
   amount                  NUMERIC(12,2) NOT NULL,
-  source                  VARCHAR(20) NOT NULL CHECK (source IN ('MEMBER_REPORTED', 'ORGANIZER_CONFIRMED', 'CMI_WEBHOOK', 'ADMIN_ADJUSTMENT')),
+  source                  VARCHAR(20) NOT NULL CHECK (source IN ('MEMBER_REPORTED', 'ORGANIZER_CONFIRMED', 'CMI_WEBHOOK', 'ADMIN_ADJUSTMENT', 'SYSTEM_SCHEDULED')),  -- SYSTEM_SCHEDULED added V9 (Sprint 4 Batch 2, story 4.1: cron-auto-executed payouts)
   reversal_of_entry_id    UUID REFERENCES ledger_entries(id),  -- for offsetting corrections, never UPDATE/DELETE
   created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
   -- No updated_at — this table is append-only. See §7 for DB-level enforcement.

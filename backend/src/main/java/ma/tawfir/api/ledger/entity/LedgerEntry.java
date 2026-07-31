@@ -72,6 +72,18 @@ public class LedgerEntry {
 		return entry;
 	}
 
+	public static LedgerEntry payout(UUID groupId, UUID payoutScheduleId, UUID actorUserId,
+			BigDecimal amount, LedgerSource source) {
+		LedgerEntry entry = new LedgerEntry();
+		entry.groupId = groupId;
+		entry.entryType = LedgerEntryType.PAYOUT;
+		entry.payoutScheduleId = payoutScheduleId;
+		entry.actorUserId = actorUserId;
+		entry.amount = amount;
+		entry.source = source;
+		return entry;
+	}
+
 	@PrePersist
 	void onCreate() {
 		this.createdAt = Instant.now();
