@@ -68,7 +68,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void verifyOtp_expiredChallenge_rejectedWithoutIssuingJwt() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().minusSeconds(1)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), "127.0.0.1", passwordEncoder.encode(CODE), Instant.now().minusSeconds(1)));
 
 		mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -78,7 +78,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void fullAuthFlow_verifyThenRotateThenDetectReuseThenLogout() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), "127.0.0.1", passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
 
 		MvcResult verifyResult = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -112,7 +112,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void logout_thenRefreshWithSameToken_isRejected() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), "127.0.0.1", passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
 
 		MvcResult verifyResult = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)

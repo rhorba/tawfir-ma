@@ -27,3 +27,6 @@ frontend-member: 31/31 tests pass. Coverage 86.81% statements / 74.5% branches /
 
 ## 2026-08-01 — phone_number blind-index encryption (risk remediation)
 backend: 232/232 tests pass (`mvnw verify`, JDK 21). JaCoCo: 95.9% instructions (gate: 80%) — PASS. Checkstyle: 0 violations. New: PhoneNumberCodec + PhoneNumberCodecTest not added separately — covered transitively via AuthServiceTest/GroupServiceTest/MfaServiceTest/AuthFlowIntegrationTest/MfaFlowIntegrationTest/AdminFlowIntegrationTest and other integration suites exercising the real bean end-to-end.
+
+## 2026-08-01 — per-IP OTP rate limiting (risk remediation)
+backend: 233/233 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.0% instructions (gate: 80%) — PASS. Checkstyle: 0 violations. 1 new test (AuthServiceTest.requestOtp_ratelimited_afterTwentyFromSameIp) plus real coverage of the new per-IP path through existing requestOtp tests.

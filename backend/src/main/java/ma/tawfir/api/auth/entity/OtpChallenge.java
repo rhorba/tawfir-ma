@@ -31,6 +31,10 @@ public class OtpChallenge {
 	@Column(name = "phone_number_hash", nullable = false, length = 64)
 	private String phoneNumberHash;
 
+	/** Requesting client's IP (added V11) — backs the per-IP OTP-request rate limit alongside the per-phone one. */
+	@Column(name = "ip_address", nullable = false, length = 45)
+	private String ipAddress;
+
 	@Column(name = "code_hash", nullable = false)
 	private String codeHash;
 
@@ -46,8 +50,9 @@ public class OtpChallenge {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	public OtpChallenge(String phoneNumberHash, String codeHash, Instant expiresAt) {
+	public OtpChallenge(String phoneNumberHash, String ipAddress, String codeHash, Instant expiresAt) {
 		this.phoneNumberHash = phoneNumberHash;
+		this.ipAddress = ipAddress;
 		this.codeHash = codeHash;
 		this.expiresAt = expiresAt;
 		this.attemptCount = 0;

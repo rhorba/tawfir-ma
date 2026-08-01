@@ -19,3 +19,12 @@
 - **Status**: closed — 2026-08-01. Implemented `PhoneNumberCodec`; migration V10 replaces `users.phone_number`/`otp_challenges.phone_number` with `phone_number_hash` (+`phone_number_encrypted` on `users` only). Updated `AuthService`, `GroupService`, `MfaService`, and all affected repositories/tests. `database-tawfir.md` §3/§4/§7 and `security-tawfir.md` §5 updated to match. `users.national_id` intentionally left unencrypted — the column is unused/unpopulated (KYC deferred); apply the same scheme before it's ever written to.
 - **Impact**: high
 ---
+
+### [2026-07-21] DENIAL OF SERVICE — no per-IP OTP request rate limiting
+- **Specialist**: Security Engineer
+- **Summary**: `POST /api/v1/auth/otp/request` only rate-limited per phone number (5/10min) — flagged in security-tawfir.md STRIDE table as a DoS risk (one IP spraying OTP requests across many different phone numbers to run up SMS costs or harass numbers, bypassing the per-phone limit entirely). AuthService's own javadoc explicitly called this out as intentionally deferred pending a design that survives horizontal scaling.
+- **Probability**: Medium (requires an attacker to actively target the endpoint, but the endpoint is public/unauthenticated by design)
+- **Mitigation**: DB-backed per-IP count (same mechanism as the existing per-phone check), not in-memory, so it works correctly even if the backend scales to multiple instances.
+- **Status**: closed — 2026-08-01. Migration V11 adds `otp_challenges.ip_address`; `AuthService.requestOtp` now checks both `countByPhoneNumberHashAndCreatedAtAfter` (5/10min, existing) and `countByIpAddressAndCreatedAtAfter` (20/10min, new — higher threshold than per-phone to tolerate legitimate NAT/shared-IP traffic). `AuthController` passes `HttpServletRequest.getRemoteAddr()` through. security-tawfir.md STRIDE row and database-tawfir.md schema updated. Residual: this is fixed-window counting, not exponential backoff, and `getRemoteAddr()` assumes no reverse proxy in front of the app — if one is ever added, `X-Forwarded-For` trust handling will need revisiting.
+- **Impact**: medium
+---

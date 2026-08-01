@@ -30,16 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Stories 1.1-1.3 (auth-tawfir stories doc): OTP request/verify, refresh
- * rotation with reuse detection, logout. Per-IP rate limiting is intentionally
- * NOT implemented here — security-tawfir.md §3 lists it as a still-open TODO,
- * and an in-memory-only limiter wouldn't survive horizontal scaling anyway;
- * flagged rather than half-built (matches this project's convention for other
- * undecided items like the OTP/CMI provider choice).
+ * rotation with reuse detection, logout. OTP request rate limiting is
+ * DB-backed (otp_challenges row counts), not in-memory, so both the
+ * per-phone and per-IP checks survive horizontal scaling — an in-memory
+ * limiter wouldn't (security-tawfir.md STRIDE).
  */
 @Service
 public class AuthService {
 
 	static final int MAX_OTP_REQUESTS_PER_WINDOW = 5;
+	static final int MAX_OTP_REQUESTS_PER_IP_PER_WINDOW = 20;
 	static final Duration OTP_RATE_LIMIT_WINDOW = Duration.ofMinutes(10);
 	static final int MAX_OTP_VERIFY_ATTEMPTS = 5;
 	static final Duration OTP_TTL = Duration.ofMinutes(5);
@@ -82,16 +82,22 @@ public class AuthService {
 	}
 
 	@Transactional
-	public void requestOtp(String phoneNumber) {
+	public void requestOtp(String phoneNumber, String ipAddress) {
+		Instant windowStart = Instant.now().minus(OTP_RATE_LIMIT_WINDOW);
 		String phoneNumberHash = phoneNumberCodec.hash(phoneNumber);
-		long recentCount = otpChallengeRepository.countByPhoneNumberHashAndCreatedAtAfter(
-			phoneNumberHash, Instant.now().minus(OTP_RATE_LIMIT_WINDOW));
-		if (recentCount >= MAX_OTP_REQUESTS_PER_WINDOW) {
+		long recentCountForPhone = otpChallengeRepository.countByPhoneNumberHashAndCreatedAtAfter(
+			phoneNumberHash, windowStart);
+		if (recentCountForPhone >= MAX_OTP_REQUESTS_PER_WINDOW) {
 			throw new RateLimitExceededException("Too many OTP requests for this phone number. Try again later.");
+		}
+		long recentCountForIp = otpChallengeRepository.countByIpAddressAndCreatedAtAfter(ipAddress, windowStart);
+		if (recentCountForIp >= MAX_OTP_REQUESTS_PER_IP_PER_WINDOW) {
+			throw new RateLimitExceededException("Too many OTP requests from this network. Try again later.");
 		}
 
 		String code = generateOtpCode();
-		OtpChallenge challenge = new OtpChallenge(phoneNumberHash, passwordEncoder.encode(code), Instant.now().plus(OTP_TTL));
+		OtpChallenge challenge = new OtpChallenge(
+			phoneNumberHash, ipAddress, passwordEncoder.encode(code), Instant.now().plus(OTP_TTL));
 		otpChallengeRepository.save(challenge);
 		otpProvider.sendOtp(phoneNumber, code);
 	}

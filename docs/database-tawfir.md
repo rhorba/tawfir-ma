@@ -57,6 +57,8 @@ CREATE TABLE otp_challenges (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phone_number_hash VARCHAR(64) NOT NULL,       -- added V10: HMAC-SHA256 blind index (PhoneNumberCodec);
                                                  -- no reversible copy — nothing ever reads it back
+  ip_address    VARCHAR(45) NOT NULL,           -- added V11: requesting client's IP, backs the
+                                                 -- per-IP OTP-request rate limit (security doc STRIDE)
   code_hash     VARCHAR(255) NOT NULL,          -- never store raw OTP
   expires_at    TIMESTAMPTZ NOT NULL,
   consumed_at   TIMESTAMPTZ,
@@ -193,6 +195,7 @@ CREATE TABLE savings_history_snapshots (
 | ledger_entries | idx_ledger_payout | payout_schedule_id | Deriving current payout state |
 | disputes | idx_disputes_group_status | (group_id, status) | "open disputes for this group" |
 | otp_challenges | idx_otp_phone_hash_expiry | (phone_number_hash, expires_at) | OTP verification lookup |
+| otp_challenges | idx_otp_ip_created | (ip_address, created_at) | Per-IP OTP request rate-limit count |
 | refresh_tokens | idx_refresh_family | family_id | Reuse detection: revoke whole family |
 | refresh_tokens | idx_refresh_user | user_id | Logout-all / list active sessions |
 

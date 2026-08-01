@@ -53,7 +53,7 @@ class AuthControllerTest {
 				.content("{\"phoneNumber\":\"+212612345678\"}"))
 			.andExpect(status().isAccepted());
 
-		verify(authService).requestOtp("+212612345678");
+		verify(authService).requestOtp("+212612345678", "127.0.0.1");
 	}
 
 	@Test
@@ -63,7 +63,7 @@ class AuthControllerTest {
 				.content("{\"phoneNumber\":\"not-a-phone\"}"))
 			.andExpect(status().isBadRequest());
 
-		verify(authService, org.mockito.Mockito.never()).requestOtp(anyString());
+		verify(authService, org.mockito.Mockito.never()).requestOtp(anyString(), anyString());
 	}
 
 	@Test

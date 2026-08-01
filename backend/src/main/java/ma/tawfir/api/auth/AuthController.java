@@ -1,5 +1,6 @@
 package ma.tawfir.api.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import ma.tawfir.api.auth.dto.LogoutRequest;
 import ma.tawfir.api.auth.dto.MfaLoginVerifyRequest;
@@ -27,8 +28,8 @@ public class AuthController {
 
 	@PostMapping("/otp/request")
 	@ResponseStatus(HttpStatus.ACCEPTED)
-	public void requestOtp(@Valid @RequestBody OtpRequestRequest request) {
-		authService.requestOtp(request.phoneNumber());
+	public void requestOtp(@Valid @RequestBody OtpRequestRequest request, HttpServletRequest servletRequest) {
+		authService.requestOtp(request.phoneNumber(), servletRequest.getRemoteAddr());
 	}
 
 	@PostMapping("/otp/verify")

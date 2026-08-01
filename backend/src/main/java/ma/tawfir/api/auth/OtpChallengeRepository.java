@@ -10,6 +10,8 @@ public interface OtpChallengeRepository extends JpaRepository<OtpChallenge, UUID
 
 	long countByPhoneNumberHashAndCreatedAtAfter(String phoneNumberHash, Instant since);
 
+	long countByIpAddressAndCreatedAtAfter(String ipAddress, Instant since);
+
 	Optional<OtpChallenge> findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(String phoneNumberHash);
 
 }

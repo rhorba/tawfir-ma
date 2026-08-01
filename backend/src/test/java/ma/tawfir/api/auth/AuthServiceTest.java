@@ -44,6 +44,7 @@ class AuthServiceTest {
 
 	private static final String PHONE = "+212612345678";
 	private static final String HASHED_PHONE = "hashed-" + PHONE;
+	private static final String IP = "203.0.113.5";
 
 	@Mock
 	private OtpChallengeRepository otpChallengeRepository;
@@ -83,7 +84,22 @@ class AuthServiceTest {
 		when(otpChallengeRepository.countByPhoneNumberHashAndCreatedAtAfter(eq(HASHED_PHONE), any()))
 			.thenReturn(5L);
 
-		assertThatThrownBy(() -> authService.requestOtp(PHONE))
+		assertThatThrownBy(() -> authService.requestOtp(PHONE, IP))
+			.isInstanceOf(RateLimitExceededException.class);
+
+		verify(otpProvider, never()).sendOtp(any(), any());
+		verify(otpChallengeRepository, never()).save(any());
+	}
+
+	@Test
+	void requestOtp_ratelimited_afterTwentyFromSameIp() {
+		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
+		when(otpChallengeRepository.countByPhoneNumberHashAndCreatedAtAfter(eq(HASHED_PHONE), any()))
+			.thenReturn(0L);
+		when(otpChallengeRepository.countByIpAddressAndCreatedAtAfter(eq(IP), any()))
+			.thenReturn(20L);
+
+		assertThatThrownBy(() -> authService.requestOtp(PHONE, IP))
 			.isInstanceOf(RateLimitExceededException.class);
 
 		verify(otpProvider, never()).sendOtp(any(), any());
@@ -97,7 +113,7 @@ class AuthServiceTest {
 			.thenReturn(0L);
 		when(passwordEncoder.encode(anyString())).thenReturn("hashed-code");
 
-		authService.requestOtp(PHONE);
+		authService.requestOtp(PHONE, IP);
 
 		verify(otpChallengeRepository).save(any(OtpChallenge.class));
 		ArgumentCaptor<String> codeCaptor = ArgumentCaptor.forClass(String.class);
@@ -118,7 +134,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_expiredChallenge_throwsInvalidOtp() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().minusSeconds(1));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().minusSeconds(1));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 
@@ -129,7 +145,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_maxAttemptsExceeded_throwsInvalidOtp() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		for (int i = 0; i < AuthService.MAX_OTP_VERIFY_ATTEMPTS; i++) {
 			challenge.incrementAttempts();
 		}
@@ -143,7 +159,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_wrongCode_incrementsAttemptsAndThrows() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 		when(passwordEncoder.matches("000000", "hash")).thenReturn(false);
@@ -158,7 +174,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_success_createsNewUserAndIssuesTokens() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
@@ -182,7 +198,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_success_reusesExistingUser() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
@@ -293,7 +309,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_adminWithMfaEnabled_returnsMfaPendingResponseNotTokens() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);
@@ -318,7 +334,7 @@ class AuthServiceTest {
 	@Test
 	void verifyOtp_adminWithoutMfaEnabled_stillReturnsTokensDirectly() {
 		when(phoneNumberCodec.hash(PHONE)).thenReturn(HASHED_PHONE);
-		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, "hash", Instant.now().plusSeconds(300));
+		OtpChallenge challenge = new OtpChallenge(HASHED_PHONE, IP, "hash", Instant.now().plusSeconds(300));
 		when(otpChallengeRepository.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(HASHED_PHONE))
 			.thenReturn(Optional.of(challenge));
 		when(passwordEncoder.matches("123456", "hash")).thenReturn(true);

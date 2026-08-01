@@ -71,7 +71,7 @@ class DisputeLifecycleIntegrationTest {
 	private String loginAndGetAccessToken(String phoneNumber) throws Exception {
 		String code = "654321";
 		otpChallengeRepository.save(
-			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
+			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), "127.0.0.1", passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
 
 		MvcResult result = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
