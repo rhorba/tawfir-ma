@@ -331,3 +331,6 @@ Push of e0edf59 triggered CI run 30692421669 - RED on Backend job: JwtServiceTes
 
 ## 2026-08-01 — per-IP OTP rate limiting shipped
 UNDERSTAND->BRAINSTORM->PLAN->EXECUTE->VERIFY completed for the no-per-IP-rate-limiting risk (3rd item tackled, after SDR-3 and phone_number encryption). Confirmed with user: reuse the existing DB-backed per-phone pattern rather than in-memory/Redis; threshold 20 requests/10min (vs 5/10min per-phone) to tolerate NAT/shared-IP traffic. EXECUTE: migration V11 (otp_challenges.ip_address + index), OtpChallenge/OtpChallengeRepository/AuthService/AuthController updated, 1 new test + updates across AuthServiceTest/AuthControllerTest/9 fixture-only integration tests (13 files total, matching the plan). VERIFY: full `mvnw verify` on JDK 21 - 233/233 tests pass, 0 Checkstyle violations, JaCoCo 96.0%. Docs updated: security-tawfir.md STRIDE table, database-tawfir.md schema/index tables. Risk closed in .logs/risks.md, decisions logged in .logs/decisions.md.
+
+## 2026-08-01 — CI monitoring after per-IP rate limiting push
+Push of 7b4c7ba triggered CI run 30697638370 - GREEN on first try, all jobs passed (Backend, Security scan, Frontend Admin, Frontend Member, Docker build).
