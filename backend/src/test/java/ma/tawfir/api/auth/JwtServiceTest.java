@@ -35,7 +35,13 @@ class JwtServiceTest {
 	@Test
 	void parseAndValidate_rejectsTamperedToken() {
 		String token = jwtService.issueAccessToken(UUID.randomUUID(), "MEMBER");
-		String tampered = token.substring(0, token.length() - 1) + (token.endsWith("a") ? "b" : "a");
+		// Flips the second-to-last base64url character rather than the last one: a 32-byte
+		// HS256 signature's final character has 2 unused/padding bits, so flipping only that
+		// character can occasionally decode to a byte-identical signature (flaky pass-through).
+		// The second-to-last character always carries significant signature bits.
+		int tamperIndex = token.length() - 2;
+		char replacement = token.charAt(tamperIndex) == 'a' ? 'b' : 'a';
+		String tampered = token.substring(0, tamperIndex) + replacement + token.substring(tamperIndex + 1);
 
 		assertThatThrownBy(() -> jwtService.parseAndValidate(tampered)).isInstanceOf(JwtException.class);
 	}
