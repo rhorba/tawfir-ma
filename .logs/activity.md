@@ -316,3 +316,6 @@ Sprint 4 is now fully implemented (Batch 1 + Batch 2, all 4 stories: 3.3, 4.1, 4
 
 ## 2026-07-31 — Sprint 4 Batch 2 SHIP phase + CI monitoring (rule 7/11)
 PUSH: commit 777b812 pushed to origin/feature/sprint-2-auth-groups. CI run 30669618409: GREEN on first try (all jobs). Sprint 4 is now 100% closed — both batches (webhook infra + 3.3, then 4.1/4.2/4.3) shipped and green. User asked to end the session here.
+
+## 2026-08-01 — SDR-3 (payment custody model) closed
+UNDERSTAND→PLAN→EXECUTE→VERIFY: confirmed with user that SDR-3 (system-design-tawfir.md) is decided non-custodial, not just an MVP-default assumption. EXECUTE: updated system-design-tawfir.md SDR-3 decision + validation checklist, security-tawfir.md §6.1, closed the open risk in .logs/risks.md, logged the decision in .logs/decisions.md. VERIFY: docs-only change, no tests/coverage/CI impact — confirmed no code paths reference "not yet decided" language elsewhere. No SHIP push yet (not a sprint boundary); holding for user confirmation on whether to commit now.

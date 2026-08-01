@@ -79,12 +79,12 @@
 - **Options**:
   - 🟢 Non-custodial: Tawfir never touches funds — members transfer via CMI/bank directly, app only records confirmation
   - 🔴 Custodial: Tawfir holds/moves funds itself via a CMI merchant account it controls
-- **Decision**: 🔶 **Not yet decided — flagged as an open decision for the user.** System design below assumes the non-custodial model (🟢) as the safer MVP default per YAGNI and regulatory risk in the PRD. If custodial is required, this doc and the security/database docs need a revision pass before Sprint 2.
-- **Re-evaluate when**: Legal counsel confirms which model is compliant, or business requirements force custody (e.g. to guarantee payout timing).
+- **Decision**: 🟢 **Confirmed non-custodial (2026-08-01).** Tawfir never holds or moves member funds; members transfer directly via CMI/bank rails and the app only records confirmation. Matches what Sprint 4's webhook/payout implementation already does against `MockCmiClient`.
+- **Re-evaluate when**: Business requirements force custody (e.g. to guarantee payout timing) — would require a revision pass on this doc plus security/database docs before any custodial code is written.
 
 ## System Design Validation Checklist
 - [x] All NFRs captured with measurable targets (some 🔶 placeholders pending real usage data)
 - [x] Topology fits current project scale (single monolith, no premature distributed-systems complexity)
 - [x] Data flow covers read and write paths
 - [x] Integration patterns chosen with justification
-- [x] SDRs document all key decisions — **SDR-3 is a genuine open decision requiring your input, not just a placeholder number**
+- [x] SDRs document all key decisions — SDR-3 confirmed non-custodial 2026-08-01, no longer open
