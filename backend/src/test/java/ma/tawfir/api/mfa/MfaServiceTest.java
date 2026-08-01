@@ -13,6 +13,7 @@ import java.util.UUID;
 import ma.tawfir.api.auth.RateLimitExceededException;
 import ma.tawfir.api.common.AesGcmEncryptor;
 import ma.tawfir.api.common.NotFoundException;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.common.ValidationException;
 import ma.tawfir.api.mfa.dto.MfaSetupResponse;
 import ma.tawfir.api.user.UserRepository;
@@ -32,22 +33,25 @@ class MfaServiceTest {
 	@Mock
 	private AesGcmEncryptor encryptor;
 	@Mock
+	private PhoneNumberCodec phoneNumberCodec;
+	@Mock
 	private TotpGenerator totpGenerator;
 
 	private MfaService mfaService;
 
 	@BeforeEach
 	void setUp() {
-		mfaService = new MfaService(userRepository, encryptor, totpGenerator);
+		mfaService = new MfaService(userRepository, encryptor, phoneNumberCodec, totpGenerator);
 	}
 
 	@Test
 	void setup_generatesAndStoresEncryptedSecretButDoesNotEnable() {
 		UUID userId = UUID.randomUUID();
-		User user = new User("+212612345678");
+		User user = new User("hashed-phone", "encrypted-phone");
 		ReflectionTestUtils.setField(user, "id", userId);
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 		when(totpGenerator.generateSecret()).thenReturn("PLAINSECRET");
+		when(phoneNumberCodec.decrypt("encrypted-phone")).thenReturn("+212612345678");
 		when(totpGenerator.buildProvisioningUri("+212612345678", "PLAINSECRET")).thenReturn("otpauth://totp/uri");
 		when(encryptor.encrypt("PLAINSECRET")).thenReturn("encrypted-secret");
 
@@ -71,7 +75,7 @@ class MfaServiceTest {
 	@Test
 	void verify_withoutPriorSetup_throwsValidationException() {
 		UUID userId = UUID.randomUUID();
-		User user = new User("+212612345678");
+		User user = new User("hashed-phone", "encrypted-phone");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
 		assertThatThrownBy(() -> mfaService.verify(userId, "123456"))
@@ -81,7 +85,7 @@ class MfaServiceTest {
 	@Test
 	void verify_correctCode_enablesMfa() {
 		UUID userId = UUID.randomUUID();
-		User user = new User("+212612345678");
+		User user = new User("hashed-phone", "encrypted-phone");
 		user.setTotpSecret("encrypted-secret");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 		when(encryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");
@@ -96,7 +100,7 @@ class MfaServiceTest {
 	@Test
 	void verify_wrongCode_throwsInvalidMfaCodeAndLeavesDisabled() {
 		UUID userId = UUID.randomUUID();
-		User user = new User("+212612345678");
+		User user = new User("hashed-phone", "encrypted-phone");
 		user.setTotpSecret("encrypted-secret");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 		when(encryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");
@@ -113,7 +117,7 @@ class MfaServiceTest {
 	@Test
 	void verify_repeatedWrongCodes_locksOutAfterMaxAttempts() {
 		UUID userId = UUID.randomUUID();
-		User user = new User("+212612345678");
+		User user = new User("hashed-phone", "encrypted-phone");
 		user.setTotpSecret("encrypted-secret");
 		when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 		when(encryptor.decrypt("encrypted-secret")).thenReturn("plain-secret");

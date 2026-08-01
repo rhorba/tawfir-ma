@@ -3,6 +3,7 @@ package ma.tawfir.api.group;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import ma.tawfir.api.common.ForbiddenException;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.common.ValidationException;
 import ma.tawfir.api.group.dto.CreateGroupRequest;
 import ma.tawfir.api.group.dto.GroupDetailResponse;
@@ -49,13 +51,17 @@ class GroupServiceTest {
 	private PayoutScheduleRepository payoutScheduleRepository;
 	@Mock
 	private UserRepository userRepository;
+	@Mock
+	private PhoneNumberCodec phoneNumberCodec;
 
 	private GroupService groupService;
 
 	@BeforeEach
 	void setUp() {
 		groupService = new GroupService(groupRepository, membershipRepository, contributionScheduleRepository,
-			payoutScheduleRepository, userRepository);
+			payoutScheduleRepository, userRepository, phoneNumberCodec);
+		lenient().when(phoneNumberCodec.hash(anyString()))
+			.thenAnswer(invocation -> hashOf(invocation.getArgument(0)));
 		lenient().when(groupRepository.save(any(Group.class))).thenAnswer(invocation -> {
 			Group group = invocation.getArgument(0);
 			if (group.getId() == null) {
@@ -72,22 +78,28 @@ class GroupServiceTest {
 		});
 	}
 
+	private static String hashOf(String phoneNumber) {
+		return "hash:" + phoneNumber;
+	}
+
 	private User userWithId(String phoneNumber) {
-		User user = new User(phoneNumber);
+		User user = new User(hashOf(phoneNumber), "enc:" + phoneNumber);
 		ReflectionTestUtils.setField(user, "id", UUID.randomUUID());
 		return user;
 	}
 
 	@Test
 	void createGroup_manualOrder_assignsPayoutPositionByArrayOrder() {
-		User organizer = userWithId("+212600000001");
+		String organizerPhone = "+212600000001";
+		String memberAPhone = "+212600000002";
+		User organizer = userWithId(organizerPhone);
 		when(userRepository.findById(organizer.getId())).thenReturn(Optional.of(organizer));
-		when(userRepository.findByPhoneNumber(organizer.getPhoneNumber())).thenReturn(Optional.of(organizer));
-		User memberA = userWithId("+212600000002");
-		when(userRepository.findByPhoneNumber(memberA.getPhoneNumber())).thenReturn(Optional.of(memberA));
+		when(userRepository.findByPhoneNumberHash(hashOf(organizerPhone))).thenReturn(Optional.of(organizer));
+		User memberA = userWithId(memberAPhone);
+		when(userRepository.findByPhoneNumberHash(hashOf(memberAPhone))).thenReturn(Optional.of(memberA));
 
 		CreateGroupRequest request = new CreateGroupRequest("Daret", BigDecimal.valueOf(500), Frequency.MONTHLY,
-			(short) 2, PayoutOrderMode.MANUAL, List.of(organizer.getPhoneNumber(), memberA.getPhoneNumber()));
+			(short) 2, PayoutOrderMode.MANUAL, List.of(organizerPhone, memberAPhone));
 
 		groupService.createGroup(organizer.getId(), request);
 
@@ -102,14 +114,17 @@ class GroupServiceTest {
 
 	@Test
 	void createGroup_organizerOmittedFromMembers_isAutoAppended() {
-		User organizer = userWithId("+212600000001");
+		String organizerPhone = "+212600000001";
+		String memberAPhone = "+212600000002";
+		User organizer = userWithId(organizerPhone);
 		when(userRepository.findById(organizer.getId())).thenReturn(Optional.of(organizer));
-		User memberA = userWithId("+212600000002");
-		when(userRepository.findByPhoneNumber(memberA.getPhoneNumber())).thenReturn(Optional.of(memberA));
-		when(userRepository.findByPhoneNumber(organizer.getPhoneNumber())).thenReturn(Optional.of(organizer));
+		User memberA = userWithId(memberAPhone);
+		when(userRepository.findByPhoneNumberHash(hashOf(memberAPhone))).thenReturn(Optional.of(memberA));
+		when(userRepository.findByPhoneNumberHash(hashOf(organizerPhone))).thenReturn(Optional.of(organizer));
+		when(phoneNumberCodec.decrypt(organizer.getPhoneNumberEncrypted())).thenReturn(organizerPhone);
 
 		CreateGroupRequest request = new CreateGroupRequest("Daret", BigDecimal.valueOf(500), Frequency.MONTHLY,
-			(short) 2, PayoutOrderMode.RANDOMIZED, List.of(memberA.getPhoneNumber()));
+			(short) 2, PayoutOrderMode.RANDOMIZED, List.of(memberAPhone));
 
 		groupService.createGroup(organizer.getId(), request);
 
@@ -133,10 +148,11 @@ class GroupServiceTest {
 
 	@Test
 	void createGroup_unregisteredPhone_autoCreatesUser() {
-		User organizer = userWithId("+212600000001");
+		String organizerPhone = "+212600000001";
+		User organizer = userWithId(organizerPhone);
 		when(userRepository.findById(organizer.getId())).thenReturn(Optional.of(organizer));
-		when(userRepository.findByPhoneNumber(organizer.getPhoneNumber())).thenReturn(Optional.of(organizer));
-		when(userRepository.findByPhoneNumber("+212600000099")).thenReturn(Optional.empty());
+		when(userRepository.findByPhoneNumberHash(hashOf(organizerPhone))).thenReturn(Optional.of(organizer));
+		when(userRepository.findByPhoneNumberHash(hashOf("+212600000099"))).thenReturn(Optional.empty());
 		when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
 			User u = invocation.getArgument(0);
 			ReflectionTestUtils.setField(u, "id", UUID.randomUUID());
@@ -144,7 +160,7 @@ class GroupServiceTest {
 		});
 
 		CreateGroupRequest request = new CreateGroupRequest("Daret", BigDecimal.valueOf(500), Frequency.MONTHLY,
-			(short) 2, PayoutOrderMode.MANUAL, List.of(organizer.getPhoneNumber(), "+212600000099"));
+			(short) 2, PayoutOrderMode.MANUAL, List.of(organizerPhone, "+212600000099"));
 
 		groupService.createGroup(organizer.getId(), request);
 

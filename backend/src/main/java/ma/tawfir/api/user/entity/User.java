@@ -35,8 +35,13 @@ public class User {
 	@GeneratedValue
 	private UUID id;
 
-	@Column(name = "phone_number", nullable = false, unique = true, length = 20)
-	private String phoneNumber;
+	/** Deterministic HMAC-SHA256 blind index (PhoneNumberCodec) — the only column used for lookups/uniqueness. */
+	@Column(name = "phone_number_hash", nullable = false, unique = true, length = 64)
+	private String phoneNumberHash;
+
+	/** AES-GCM encrypted+base64 (PhoneNumberCodec) — decrypt only when a phone number must be displayed. */
+	@Column(name = "phone_number_encrypted", nullable = false)
+	private String phoneNumberEncrypted;
 
 	@Column(name = "full_name")
 	private String fullName;
@@ -69,8 +74,9 @@ public class User {
 	@Column(name = "mfa_locked_until")
 	private Instant mfaLockedUntil;
 
-	public User(String phoneNumber) {
-		this.phoneNumber = phoneNumber;
+	public User(String phoneNumberHash, String phoneNumberEncrypted) {
+		this.phoneNumberHash = phoneNumberHash;
+		this.phoneNumberEncrypted = phoneNumberEncrypted;
 		this.role = Role.MEMBER;
 	}
 

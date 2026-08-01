@@ -15,6 +15,8 @@ import lombok.NoArgsConstructor;
 /**
  * code_hash is a BCrypt hash of the raw 6-digit code — the raw code is only ever
  * held in memory and passed to the OtpProvider, never persisted (security-tawfir.md §6).
+ * phone_number_hash is a deterministic HMAC-SHA256 blind index (PhoneNumberCodec) — no
+ * reversible copy is stored here since nothing ever reads a challenge's phone number back.
  */
 @Entity
 @Table(name = "otp_challenges")
@@ -26,8 +28,8 @@ public class OtpChallenge {
 	@GeneratedValue
 	private UUID id;
 
-	@Column(name = "phone_number", nullable = false, length = 20)
-	private String phoneNumber;
+	@Column(name = "phone_number_hash", nullable = false, length = 64)
+	private String phoneNumberHash;
 
 	@Column(name = "code_hash", nullable = false)
 	private String codeHash;
@@ -44,8 +46,8 @@ public class OtpChallenge {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	public OtpChallenge(String phoneNumber, String codeHash, Instant expiresAt) {
-		this.phoneNumber = phoneNumber;
+	public OtpChallenge(String phoneNumberHash, String codeHash, Instant expiresAt) {
+		this.phoneNumberHash = phoneNumberHash;
 		this.codeHash = codeHash;
 		this.expiresAt = expiresAt;
 		this.attemptCount = 0;

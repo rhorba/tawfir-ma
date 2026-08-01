@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import ma.tawfir.api.TestcontainersConfiguration;
 import ma.tawfir.api.auth.OtpChallengeRepository;
 import ma.tawfir.api.auth.entity.OtpChallenge;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.dispute.dto.ResolveDisputeRequest;
 import ma.tawfir.api.dispute.entity.Dispute;
 import ma.tawfir.api.dispute.entity.DisputeStatus;
@@ -58,6 +59,8 @@ class DisputeLifecycleIntegrationTest {
 	private DisputeRepository disputeRepository;
 	@Autowired
 	private DisputeService disputeService;
+	@Autowired
+	private PhoneNumberCodec phoneNumberCodec;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
@@ -67,7 +70,8 @@ class DisputeLifecycleIntegrationTest {
 
 	private String loginAndGetAccessToken(String phoneNumber) throws Exception {
 		String code = "654321";
-		otpChallengeRepository.save(new OtpChallenge(phoneNumber, passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(
+			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
 
 		MvcResult result = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)

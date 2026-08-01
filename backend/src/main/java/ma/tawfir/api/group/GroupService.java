@@ -12,6 +12,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import ma.tawfir.api.common.ForbiddenException;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.common.ValidationException;
 import ma.tawfir.api.group.dto.CreateGroupRequest;
 import ma.tawfir.api.group.dto.GroupDetailResponse;
@@ -43,15 +44,18 @@ public class GroupService {
 	private final ContributionScheduleRepository contributionScheduleRepository;
 	private final PayoutScheduleRepository payoutScheduleRepository;
 	private final UserRepository userRepository;
+	private final PhoneNumberCodec phoneNumberCodec;
 
 	public GroupService(GroupRepository groupRepository, GroupMembershipRepository membershipRepository,
 			ContributionScheduleRepository contributionScheduleRepository,
-			PayoutScheduleRepository payoutScheduleRepository, UserRepository userRepository) {
+			PayoutScheduleRepository payoutScheduleRepository, UserRepository userRepository,
+			PhoneNumberCodec phoneNumberCodec) {
 		this.groupRepository = groupRepository;
 		this.membershipRepository = membershipRepository;
 		this.contributionScheduleRepository = contributionScheduleRepository;
 		this.payoutScheduleRepository = payoutScheduleRepository;
 		this.userRepository = userRepository;
+		this.phoneNumberCodec = phoneNumberCodec;
 	}
 
 	@Transactional
@@ -65,8 +69,10 @@ public class GroupService {
 			.orElseThrow(() -> new IllegalStateException("Authenticated user not found: " + organizerId));
 
 		List<String> orderedPhones = new ArrayList<>(uniquePhones);
-		if (!orderedPhones.contains(organizer.getPhoneNumber())) {
-			orderedPhones.add(organizer.getPhoneNumber());
+		boolean organizerIncluded = orderedPhones.stream()
+			.anyMatch(phone -> phoneNumberCodec.hash(phone).equals(organizer.getPhoneNumberHash()));
+		if (!organizerIncluded) {
+			orderedPhones.add(phoneNumberCodec.decrypt(organizer.getPhoneNumberEncrypted()));
 		}
 
 		Group group = new Group(request.name(), organizerId, request.contributionAmount(),
@@ -76,9 +82,10 @@ public class GroupService {
 		boolean manual = request.payoutOrderMode() == PayoutOrderMode.MANUAL;
 		for (int i = 0; i < orderedPhones.size(); i++) {
 			String phoneNumber = orderedPhones.get(i);
-			User member = userRepository.findByPhoneNumber(phoneNumber)
-				.orElseGet(() -> userRepository.save(new User(phoneNumber)));
-			MembershipRole role = phoneNumber.equals(organizer.getPhoneNumber())
+			String phoneNumberHash = phoneNumberCodec.hash(phoneNumber);
+			User member = userRepository.findByPhoneNumberHash(phoneNumberHash)
+				.orElseGet(() -> userRepository.save(new User(phoneNumberHash, phoneNumberCodec.encrypt(phoneNumber))));
+			MembershipRole role = phoneNumberHash.equals(organizer.getPhoneNumberHash())
 				? MembershipRole.ORGANIZER
 				: MembershipRole.MEMBER;
 			Short payoutPosition = manual ? (short) (i + 1) : null;
@@ -138,7 +145,7 @@ public class GroupService {
 		List<MemberResponse> members = memberships.stream()
 			.map(membership -> new MemberResponse(
 				membership.getUserId(),
-				usersById.get(membership.getUserId()).getPhoneNumber(),
+				phoneNumberCodec.decrypt(usersById.get(membership.getUserId()).getPhoneNumberEncrypted()),
 				membership.getRoleInGroup(),
 				membership.getPayoutPosition()))
 			.toList();

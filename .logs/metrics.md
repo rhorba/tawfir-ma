@@ -24,3 +24,6 @@ backend: 109/109 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.0% instructions 
 ## 2026-07-28 — Sprint 3 Batch 3 coverage (ledger/dispute list endpoints + React wiring)
 backend: 118/118 tests pass (`mvnw verify`, JDK 21). Checkstyle: 0 violations, JaCoCo gate met. New: LedgerServiceTest (3), LedgerControllerTest (2), 2 new DisputeService/Controller tests for the new list-for-group endpoint.
 frontend-member: 31/31 tests pass. Coverage 86.81% statements / 74.5% branches / 85.71% functions / 88.55% lines (gate: 80% stmts/lines, 70% branches, 80% functions) — PASS. oxlint clean, `tsc -b && vite build` succeeds.
+
+## 2026-08-01 — phone_number blind-index encryption (risk remediation)
+backend: 232/232 tests pass (`mvnw verify`, JDK 21). JaCoCo: 95.9% instructions (gate: 80%) — PASS. Checkstyle: 0 violations. New: PhoneNumberCodec + PhoneNumberCodecTest not added separately — covered transitively via AuthServiceTest/GroupServiceTest/MfaServiceTest/AuthFlowIntegrationTest/MfaFlowIntegrationTest/AdminFlowIntegrationTest and other integration suites exercising the real bean end-to-end.

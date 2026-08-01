@@ -5,6 +5,7 @@ import java.util.UUID;
 import ma.tawfir.api.auth.RateLimitExceededException;
 import ma.tawfir.api.common.AesGcmEncryptor;
 import ma.tawfir.api.common.NotFoundException;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.common.ValidationException;
 import ma.tawfir.api.mfa.dto.MfaSetupResponse;
 import ma.tawfir.api.user.UserRepository;
@@ -24,11 +25,14 @@ public class MfaService {
 
 	private final UserRepository userRepository;
 	private final AesGcmEncryptor encryptor;
+	private final PhoneNumberCodec phoneNumberCodec;
 	private final TotpGenerator totpGenerator;
 
-	public MfaService(UserRepository userRepository, AesGcmEncryptor encryptor, TotpGenerator totpGenerator) {
+	public MfaService(UserRepository userRepository, AesGcmEncryptor encryptor, PhoneNumberCodec phoneNumberCodec,
+			TotpGenerator totpGenerator) {
 		this.userRepository = userRepository;
 		this.encryptor = encryptor;
+		this.phoneNumberCodec = phoneNumberCodec;
 		this.totpGenerator = totpGenerator;
 	}
 
@@ -39,7 +43,8 @@ public class MfaService {
 		user.setTotpSecret(encryptor.encrypt(secret));
 		userRepository.save(user);
 
-		String otpauthUri = totpGenerator.buildProvisioningUri(user.getPhoneNumber(), secret);
+		String otpauthUri = totpGenerator.buildProvisioningUri(
+			phoneNumberCodec.decrypt(user.getPhoneNumberEncrypted()), secret);
 		return new MfaSetupResponse(secret, otpauthUri);
 	}
 

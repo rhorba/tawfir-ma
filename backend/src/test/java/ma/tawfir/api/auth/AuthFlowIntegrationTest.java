@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import ma.tawfir.api.TestcontainersConfiguration;
 import ma.tawfir.api.auth.entity.OtpChallenge;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +41,8 @@ class AuthFlowIntegrationTest {
 	private OtpChallengeRepository otpChallengeRepository;
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+	@Autowired
+	private PhoneNumberCodec phoneNumberCodec;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
@@ -65,7 +68,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void verifyOtp_expiredChallenge_rejectedWithoutIssuingJwt() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(PHONE, passwordEncoder.encode(CODE), Instant.now().minusSeconds(1)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().minusSeconds(1)));
 
 		mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -75,7 +78,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void fullAuthFlow_verifyThenRotateThenDetectReuseThenLogout() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(PHONE, passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
 
 		MvcResult verifyResult = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -109,7 +112,7 @@ class AuthFlowIntegrationTest {
 
 	@Test
 	void logout_thenRefreshWithSameToken_isRejected() throws Exception {
-		otpChallengeRepository.save(new OtpChallenge(PHONE, passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(new OtpChallenge(phoneNumberCodec.hash(PHONE), passwordEncoder.encode(CODE), Instant.now().plusSeconds(300)));
 
 		MvcResult verifyResult = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)

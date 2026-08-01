@@ -19,9 +19,9 @@ public record TawfirProperties(Jwt jwt, Otp otp, Payment payment, Cors cors, Pii
 	public record Cors(List<String> allowedOrigins) {
 	}
 
-	/** {@code encryptionKey} is PII_ENCRYPTION_KEY (database-tawfir.md §7) — currently used to
-	 * encrypt the admin TOTP secret at rest (AesGcmEncryptor); reserved for phone-number
-	 * encryption once that blind-index design lands. */
+	/** {@code encryptionKey} is PII_ENCRYPTION_KEY (database-tawfir.md §7) — used to encrypt the
+	 * admin TOTP secret at rest (AesGcmEncryptor) and phone numbers via the blind-index scheme
+	 * in PhoneNumberCodec (hash for lookups, AES-GCM for reversible display). */
 	public record Pii(String encryptionKey) {
 	}
 

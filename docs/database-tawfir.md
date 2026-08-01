@@ -26,12 +26,11 @@ User ──1:1──> AuthIdentity (phone number, OTP state)
 -- Table: users
 CREATE TABLE users (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone_number  VARCHAR(20) NOT NULL UNIQUE,   -- 🔶 stored plaintext for Sprint 2 — encryption-at-rest
-                                                -- (§7) deferred: AES-GCM's random IV breaks the UNIQUE
-                                                -- constraint/equality lookup needed for login, so this
-                                                -- needs a blind-index design (separate HMAC lookup column),
-                                                -- not a drop-in converter. Must land before any shared/staging
-                                                -- environment holds real phone numbers.
+  phone_number_hash      VARCHAR(64) NOT NULL UNIQUE, -- added V10: deterministic HMAC-SHA256 blind
+                                                       -- index (PhoneNumberCodec) — the only column
+                                                       -- used for lookups/uniqueness (§7)
+  phone_number_encrypted TEXT NOT NULL,                -- added V10: AES-GCM encrypted+base64, decrypted
+                                                       -- only when a phone number must be displayed
   full_name     VARCHAR(255),                  -- nullable (changed from v1.0): OTP verify auto-creates the
                                                 -- user record on first login, before any name is collected;
                                                 -- filled in later via Profile/Settings (ux-tawfir.md IA)
@@ -56,7 +55,8 @@ CREATE TABLE users (
 -- Table: otp_challenges
 CREATE TABLE otp_challenges (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  phone_number  VARCHAR(20) NOT NULL,
+  phone_number_hash VARCHAR(64) NOT NULL,       -- added V10: HMAC-SHA256 blind index (PhoneNumberCodec);
+                                                 -- no reversible copy — nothing ever reads it back
   code_hash     VARCHAR(255) NOT NULL,          -- never store raw OTP
   expires_at    TIMESTAMPTZ NOT NULL,
   consumed_at   TIMESTAMPTZ,
@@ -192,7 +192,7 @@ CREATE TABLE savings_history_snapshots (
 | ledger_entries | idx_ledger_contribution | contribution_schedule_id | Deriving current contribution state |
 | ledger_entries | idx_ledger_payout | payout_schedule_id | Deriving current payout state |
 | disputes | idx_disputes_group_status | (group_id, status) | "open disputes for this group" |
-| otp_challenges | idx_otp_phone_expiry | (phone_number, expires_at) | OTP verification lookup |
+| otp_challenges | idx_otp_phone_hash_expiry | (phone_number_hash, expires_at) | OTP verification lookup |
 | refresh_tokens | idx_refresh_family | family_id | Reuse detection: revoke whole family |
 | refresh_tokens | idx_refresh_user | user_id | Logout-all / list active sessions |
 
@@ -221,7 +221,7 @@ Per DBA convention: add columns nullable first → backfill → add NOT NULL con
 | Payout cron job | SELECT payout_schedules WHERE status = 'PENDING' AND scheduled_date <= CURRENT_DATE | Consider a partial index `WHERE status = 'PENDING'` if this table grows large |
 
 ## 7. Sensitive Data
-- **Columns requiring encryption**: `users.phone_number`, `users.national_id` (encrypt at rest via pgcrypto or application-layer encryption — see security doc §5)
+- **Columns requiring encryption**: `users.phone_number` and `otp_challenges.phone_number` are encrypted (2026-08-01) — see security doc §5 and `PhoneNumberCodec`. Schema: `phone_number_hash` (deterministic HMAC-SHA256 blind index, unique on `users`, used for all lookups) + `phone_number_encrypted` (AES-GCM, reversible, `users` only — `otp_challenges` never displays a phone number back so it only needs the hash). `users.national_id` remains unencrypted since the column is currently unused/unpopulated (KYC deferred); apply the same scheme before it's ever written to.
 - **Row-level security**: 🔶 Not implemented at MVP — authorization is enforced at the Spring Boot service layer (see architecture doc). **Recommend revisiting Postgres RLS** as a defense-in-depth layer once the schema stabilizes, specifically for `ledger_entries` and `group_memberships`, so a bug in application-layer authorization isn't the *only* thing preventing cross-group data leaks.
 - **Append-only enforcement**: `ledger_entries` should have `UPDATE` and `DELETE` privileges revoked for the application's DB role, e.g.:
   ```sql

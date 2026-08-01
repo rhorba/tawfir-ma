@@ -41,7 +41,7 @@
 
 ## 5. Data Protection
 - **PII fields**: phone number, full name, national ID (if collected for KYC — 🔶 confirm whether KYC/national-ID capture is required for MVP or deferred), group financial history
-- **Encryption at rest**: PostgreSQL column-level encryption (or pgcrypto) for phone number and national ID fields; full-disk/volume encryption for the database at the infrastructure level
+- **Encryption at rest**: `users.phone_number` and `otp_challenges.phone_number` are implemented (2026-08-01) as application-layer blind-index encryption — a deterministic HMAC-SHA256 hash column for equality lookups plus an AES-GCM reversible copy for display, both keyed off `PII_ENCRYPTION_KEY` (see `PhoneNumberCodec`). `national_id` is not yet encrypted since it's currently an unused/unpopulated column (KYC capture deferred) — apply the same scheme before that column is ever written to. Full-disk/volume encryption for the database is still recommended at the infrastructure level regardless.
 - **Encryption in transit**: HTTPS enforced end-to-end (client ↔ nginx ↔ Spring Boot), HSTS enabled, no plaintext fallback
 - **Secrets management**: All secrets (JWT signing key, CMI API keys, OTP provider keys, DB credentials) via environment variables only — never committed to source. `.env.example` documents names/purpose with placeholders (see repo root); real values live in the deployment environment's secret store (see devops doc).
 

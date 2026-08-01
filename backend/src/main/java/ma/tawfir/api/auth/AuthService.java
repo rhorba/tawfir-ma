@@ -16,6 +16,7 @@ import ma.tawfir.api.auth.dto.TokenResponse;
 import ma.tawfir.api.auth.entity.OtpChallenge;
 import ma.tawfir.api.auth.entity.RefreshToken;
 import ma.tawfir.api.common.AesGcmEncryptor;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.config.TawfirProperties;
 import ma.tawfir.api.mfa.InvalidMfaCodeException;
 import ma.tawfir.api.mfa.TotpGenerator;
@@ -51,6 +52,7 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final RefreshTokenRevocationService revocationService;
 	private final AesGcmEncryptor totpEncryptor;
+	private final PhoneNumberCodec phoneNumberCodec;
 	private final TotpGenerator totpGenerator;
 	private final Duration refreshTtl;
 	private final SecureRandom secureRandom = new SecureRandom();
@@ -63,6 +65,7 @@ public class AuthService {
 			PasswordEncoder passwordEncoder,
 			RefreshTokenRevocationService revocationService,
 			AesGcmEncryptor totpEncryptor,
+			PhoneNumberCodec phoneNumberCodec,
 			TotpGenerator totpGenerator,
 			TawfirProperties properties) {
 		this.otpChallengeRepository = otpChallengeRepository;
@@ -73,28 +76,31 @@ public class AuthService {
 		this.passwordEncoder = passwordEncoder;
 		this.revocationService = revocationService;
 		this.totpEncryptor = totpEncryptor;
+		this.phoneNumberCodec = phoneNumberCodec;
 		this.totpGenerator = totpGenerator;
 		this.refreshTtl = Duration.ofDays(properties.jwt().refreshTtlDays());
 	}
 
 	@Transactional
 	public void requestOtp(String phoneNumber) {
-		long recentCount = otpChallengeRepository.countByPhoneNumberAndCreatedAtAfter(
-			phoneNumber, Instant.now().minus(OTP_RATE_LIMIT_WINDOW));
+		String phoneNumberHash = phoneNumberCodec.hash(phoneNumber);
+		long recentCount = otpChallengeRepository.countByPhoneNumberHashAndCreatedAtAfter(
+			phoneNumberHash, Instant.now().minus(OTP_RATE_LIMIT_WINDOW));
 		if (recentCount >= MAX_OTP_REQUESTS_PER_WINDOW) {
 			throw new RateLimitExceededException("Too many OTP requests for this phone number. Try again later.");
 		}
 
 		String code = generateOtpCode();
-		OtpChallenge challenge = new OtpChallenge(phoneNumber, passwordEncoder.encode(code), Instant.now().plus(OTP_TTL));
+		OtpChallenge challenge = new OtpChallenge(phoneNumberHash, passwordEncoder.encode(code), Instant.now().plus(OTP_TTL));
 		otpChallengeRepository.save(challenge);
 		otpProvider.sendOtp(phoneNumber, code);
 	}
 
 	@Transactional
 	public OtpVerifyResult verifyOtp(String phoneNumber, String code) {
+		String phoneNumberHash = phoneNumberCodec.hash(phoneNumber);
 		OtpChallenge challenge = otpChallengeRepository
-			.findTopByPhoneNumberAndConsumedAtIsNullOrderByCreatedAtDesc(phoneNumber)
+			.findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(phoneNumberHash)
 			.orElseThrow(() -> new InvalidOtpException("Invalid or expired code"));
 
 		if (challenge.isExpired() || challenge.getAttemptCount() >= MAX_OTP_VERIFY_ATTEMPTS) {
@@ -110,8 +116,8 @@ public class AuthService {
 		challenge.markConsumed();
 		otpChallengeRepository.save(challenge);
 
-		User user = userRepository.findByPhoneNumber(phoneNumber)
-			.orElseGet(() -> userRepository.save(new User(phoneNumber)));
+		User user = userRepository.findByPhoneNumberHash(phoneNumberHash)
+			.orElseGet(() -> userRepository.save(new User(phoneNumberHash, phoneNumberCodec.encrypt(phoneNumber))));
 
 		// story 1.4: MFA-enabled admins don't get real tokens straight from OTP verify —
 		// everyone else (the overwhelming majority) is completely unaffected.

@@ -8,8 +8,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface OtpChallengeRepository extends JpaRepository<OtpChallenge, UUID> {
 
-	long countByPhoneNumberAndCreatedAtAfter(String phoneNumber, Instant since);
+	long countByPhoneNumberHashAndCreatedAtAfter(String phoneNumberHash, Instant since);
 
-	Optional<OtpChallenge> findTopByPhoneNumberAndConsumedAtIsNullOrderByCreatedAtDesc(String phoneNumber);
+	Optional<OtpChallenge> findTopByPhoneNumberHashAndConsumedAtIsNullOrderByCreatedAtDesc(String phoneNumberHash);
 
 }

@@ -10,6 +10,7 @@ import java.time.Instant;
 import ma.tawfir.api.TestcontainersConfiguration;
 import ma.tawfir.api.auth.OtpChallengeRepository;
 import ma.tawfir.api.auth.entity.OtpChallenge;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.user.UserRepository;
 import ma.tawfir.api.user.entity.Role;
 import ma.tawfir.api.user.entity.User;
@@ -44,6 +45,8 @@ class AdminFlowIntegrationTest {
 	private UserRepository userRepository;
 	@Autowired
 	private PasswordEncoder passwordEncoder;
+	@Autowired
+	private PhoneNumberCodec phoneNumberCodec;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
 	@BeforeEach
@@ -53,7 +56,8 @@ class AdminFlowIntegrationTest {
 
 	private String loginAndGetToken(String phoneNumber) throws Exception {
 		String code = "654321";
-		otpChallengeRepository.save(new OtpChallenge(phoneNumber, passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(
+			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
 
 		MvcResult result = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -65,7 +69,7 @@ class AdminFlowIntegrationTest {
 
 	private String promoteToAdminAndGetToken(String phoneNumber) throws Exception {
 		loginAndGetToken(phoneNumber);
-		User user = userRepository.findByPhoneNumber(phoneNumber).orElseThrow();
+		User user = userRepository.findByPhoneNumberHash(phoneNumberCodec.hash(phoneNumber)).orElseThrow();
 		ReflectionTestUtils.setField(user, "role", Role.ADMIN);
 		userRepository.save(user);
 

@@ -12,6 +12,7 @@ import java.time.Instant;
 import ma.tawfir.api.TestcontainersConfiguration;
 import ma.tawfir.api.auth.OtpChallengeRepository;
 import ma.tawfir.api.auth.entity.OtpChallenge;
+import ma.tawfir.api.common.PhoneNumberCodec;
 import ma.tawfir.api.user.UserRepository;
 import ma.tawfir.api.user.entity.Role;
 import ma.tawfir.api.user.entity.User;
@@ -54,6 +55,8 @@ class MfaFlowIntegrationTest {
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 	@Autowired
+	private PhoneNumberCodec phoneNumberCodec;
+	@Autowired
 	private TotpGenerator totpGenerator;
 	private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -64,7 +67,8 @@ class MfaFlowIntegrationTest {
 
 	private String loginAndGetBody(String phoneNumber) throws Exception {
 		String code = "654321";
-		otpChallengeRepository.save(new OtpChallenge(phoneNumber, passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
+		otpChallengeRepository.save(
+			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
 
 		MvcResult result = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -76,7 +80,7 @@ class MfaFlowIntegrationTest {
 
 	private String promoteToAdminAndGetToken(String phoneNumber) throws Exception {
 		String firstLoginBody = loginAndGetBody(phoneNumber);
-		User user = userRepository.findByPhoneNumber(phoneNumber).orElseThrow();
+		User user = userRepository.findByPhoneNumberHash(phoneNumberCodec.hash(phoneNumber)).orElseThrow();
 		ReflectionTestUtils.setField(user, "role", Role.ADMIN);
 		userRepository.save(user);
 
@@ -130,7 +134,7 @@ class MfaFlowIntegrationTest {
 				.content("{\"code\":\"" + correctCode + "\"}"))
 			.andExpect(status().isNoContent());
 
-		User user = userRepository.findByPhoneNumber("+212703000003").orElseThrow();
+		User user = userRepository.findByPhoneNumberHash(phoneNumberCodec.hash("+212703000003")).orElseThrow();
 		assertThat(user.getTotpEnabledAt()).isNotNull();
 	}
 
@@ -143,7 +147,7 @@ class MfaFlowIntegrationTest {
 		// Login again now that MFA is enabled: must get an mfa-pending response, not real tokens.
 		String code = "654321";
 		otpChallengeRepository.save(
-			new OtpChallenge(phoneNumber, passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
+			new OtpChallenge(phoneNumberCodec.hash(phoneNumber), passwordEncoder.encode(code), Instant.now().plusSeconds(300)));
 		MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/otp/verify")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{\"phoneNumber\":\"" + phoneNumber + "\",\"code\":\"" + code + "\"}"))
