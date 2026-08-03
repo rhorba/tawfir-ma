@@ -159,3 +159,16 @@ Resumed from prior SESSION_END: the notification-channel batch (4th of 4 risk it
 - **Open issues**: None logged.
 - **Open risks**: Only the client-side-only UX-gate item above (low priority, not blocking). Real CMI integration still needs SDR-3's legal residual (BAM notification duty check) before public launch — not blocking, unchanged from prior sessions.
 ---
+
+User picked "server-side UX-gate cleanup" as the next priority (same-session continuation, no new SESSION_START needed). Before writing code, ran a read-only audit rather than trusting the carried-forward notes — found no real gap: `SecurityConfig` requires auth on everything except `/auth/**`/`/webhooks/**`/health, and every admin/organizer-gated action already has its own server-side check (`AdminController`/`MfaController`'s `requireAdmin`, `GroupService.finalizeGroup`, `ContributionService`, `DisputeService.resolve`, `PayoutScheduleService`). Closed as a confirmed non-issue in risks.md, no code changed. User then picked "review remaining stories-tawfir.md scope."
+
+That review found all 20 stories (7 epics) were already shipped, but surfaced a real stale-implementation issue: story 7.1's own technical note flagged its "cycle complete" trigger as a proxy (all contributions CONFIRMED) explicitly pending Epic 4, with a "revisit once Epic 4 lands" instruction that was never followed up after Epic 4 shipped the same day (2026-07-31). Fixed: moved `SavingsHistoryService.recordSnapshotsIfCycleComplete` from `ContributionService` to `PayoutScheduleService.transferAndTransition` (the choke point for all 3 payout paths), so a snapshot now requires the payout to have actually executed, not just contributions confirmed. Updated `ContributionServiceTest`, `PayoutScheduleServiceTest`, `SavingsHistoryFlowIntegrationTest` accordingly. `mvnw verify`: 236/236 tests, 0 Checkstyle violations, JaCoCo 96.11%/94.39% (gate 80%). Committed `cce8dda`, user confirmed push, pushed, CI green on first try (run 30802446571, all 5 jobs). Docs updated: stories-tawfir.md, decisions.md, activity.md, metrics.md.
+
+### [2026-08-03 SESSION_END]
+- **Completed**: Both the UX-gate audit (closed as non-issue) and the stories-tawfir.md scope review (found and fixed the stale savings-history proxy) — see above. Working tree is clean, everything committed and pushed (`60911d2`, `5990f89`, `cce8dda`).
+- **In progress**: Nothing.
+- **Not yet done**: No sprint currently open. All stories in stories-tawfir.md are shipped; Epic 7's `GET /api/v1/internal/kasb-export` remains an intentionally-unimplemented Phase 2 contract (architecture doc §5), not a gap.
+- **Next session**: No pending work is queued — ask the user what to prioritize next (new features, Phase 2 items like kasb-export, or something else entirely).
+- **Open issues**: None logged.
+- **Open risks**: None open and blocking. Real CMI integration still needs SDR-3's legal residual (BAM notification duty check) before public launch — not blocking, longstanding and unchanged.
+---
