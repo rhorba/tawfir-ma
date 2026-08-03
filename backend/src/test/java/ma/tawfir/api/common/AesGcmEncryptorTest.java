@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class AesGcmEncryptorTest {
 
 	private final AesGcmEncryptor encryptor = new AesGcmEncryptor(
-		new TawfirProperties(null, null, null, null, new TawfirProperties.Pii("test-only-encryption-key")));
+		new TawfirProperties(null, null, null, null, new TawfirProperties.Pii("test-only-encryption-key"), null));
 
 	@Test
 	void encryptThenDecrypt_roundTripsPlaintext() {
@@ -36,7 +36,7 @@ class AesGcmEncryptorTest {
 	@Test
 	void decrypt_withDifferentKey_fails() {
 		AesGcmEncryptor otherEncryptor = new AesGcmEncryptor(
-			new TawfirProperties(null, null, null, null, new TawfirProperties.Pii("a-completely-different-key")));
+			new TawfirProperties(null, null, null, null, new TawfirProperties.Pii("a-completely-different-key"), null));
 		String ciphertext = encryptor.encrypt("secret-value");
 
 		assertThatThrownBy(() -> otherEncryptor.decrypt(ciphertext))

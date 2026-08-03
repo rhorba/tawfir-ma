@@ -29,6 +29,8 @@ tawfir:
     refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:7}
   otp:
     provider: ${OTP_PROVIDER:mock}
+  notification:
+    provider: ${NOTIFICATION_PROVIDER:mock}
   payment:
     provider: ${CMI_PROVIDER:mock}
     webhook-secret: ${CMI_WEBHOOK_SECRET:mock-webhook-secret}

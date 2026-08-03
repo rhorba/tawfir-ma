@@ -30,3 +30,6 @@ backend: 232/232 tests pass (`mvnw verify`, JDK 21). JaCoCo: 95.9% instructions 
 
 ## 2026-08-01 — per-IP OTP rate limiting (risk remediation)
 backend: 233/233 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.0% instructions (gate: 80%) — PASS. Checkstyle: 0 violations. 1 new test (AuthServiceTest.requestOtp_ratelimited_afterTwentyFromSameIp) plus real coverage of the new per-IP path through existing requestOtp tests.
+
+## 2026-08-03 — Notification channel for late contributions + payout alerts (risk remediation)
+backend: 236/236 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.09% instructions / 93.93% branches (gate: 80%) — PASS. Checkstyle: 0 violations. New: LateContributionSchedulerTest (2, fixed an NPE from constructing the scheduler before Mockito mock injection), PayoutSchedulerTest gained 2 notification-verifying tests.

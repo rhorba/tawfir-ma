@@ -19,7 +19,7 @@ class JwtServiceTest {
 	private static final String SIGNING_KEY = "test-only-signing-key-that-is-at-least-32-bytes-long";
 
 	private final JwtService jwtService = new JwtService(
-		new TawfirProperties(new TawfirProperties.Jwt(SIGNING_KEY, 15, 7), null, null, null, null));
+		new TawfirProperties(new TawfirProperties.Jwt(SIGNING_KEY, 15, 7), null, null, null, null, null));
 
 	@Test
 	void issueAndParse_roundTripsSubjectAndRole() {

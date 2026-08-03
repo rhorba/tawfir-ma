@@ -13,7 +13,7 @@ class CmiSignatureVerifierTest {
 	private static final String SECRET = "test-webhook-secret";
 
 	private final CmiSignatureVerifier verifier =
-		new CmiSignatureVerifier(new TawfirProperties(null, null, new TawfirProperties.Payment("mock", SECRET), null, null));
+		new CmiSignatureVerifier(new TawfirProperties(null, null, new TawfirProperties.Payment("mock", SECRET), null, null, null));
 
 	private static String hmacHex(String secret, String body) throws Exception {
 		Mac mac = Mac.getInstance("HmacSHA256");

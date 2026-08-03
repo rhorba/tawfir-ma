@@ -5,12 +5,15 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.List;
 
 @ConfigurationProperties(prefix = "tawfir")
-public record TawfirProperties(Jwt jwt, Otp otp, Payment payment, Cors cors, Pii pii) {
+public record TawfirProperties(Jwt jwt, Otp otp, Payment payment, Cors cors, Pii pii, Notification notification) {
 
 	public record Jwt(String signingKey, int accessTtlMinutes, int refreshTtlDays) {
 	}
 
 	public record Otp(String provider) {
+	}
+
+	public record Notification(String provider) {
 	}
 
 	public record Payment(String provider, String webhookSecret) {

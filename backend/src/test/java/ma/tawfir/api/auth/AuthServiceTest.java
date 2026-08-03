@@ -72,7 +72,7 @@ class AuthServiceTest {
 	void setUp() {
 		jwtService = mock(JwtService.class);
 		TawfirProperties properties = new TawfirProperties(
-			new TawfirProperties.Jwt("unused-in-this-test", 15, 7), null, null, null, null);
+			new TawfirProperties.Jwt("unused-in-this-test", 15, 7), null, null, null, null, null);
 		authService = new AuthService(otpChallengeRepository, refreshTokenRepository, userRepository,
 			otpProvider, jwtService, passwordEncoder, revocationService, totpEncryptor, phoneNumberCodec,
 			totpGenerator, properties);

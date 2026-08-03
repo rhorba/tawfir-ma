@@ -192,7 +192,7 @@ Scenario: CMI webhook with invalid signature is rejected
 
 As an **Organizer**, I want overdue contributions auto-flagged, so that I don't have to manually track due dates. (PRD FR-5)
 
-**Technical Notes**: Scheduled job (Spring `@Scheduled`) transitions `PENDING` → `LATE` past `due_date`; notifies Organizer + member (notification channel TBD — likely same SMS/OTP provider or in-app only for MVP).
+**Technical Notes**: Scheduled job (Spring `@Scheduled`) transitions `PENDING` → `LATE` past `due_date`; notifies Organizer + member via `NotificationProvider` (mock-first, same pattern as `OtpProvider`/`CmiClient` — swap to a real SMS/push implementation pre-launch).
 **Dependencies**: 3.1.
 
 ## Epic 4: Payouts
