@@ -17,6 +17,7 @@ import ma.tawfir.api.ledger.LedgerEntryRepository;
 import ma.tawfir.api.ledger.entity.LedgerEntry;
 import ma.tawfir.api.ledger.entity.LedgerSource;
 import ma.tawfir.api.payment.CmiClient;
+import ma.tawfir.api.savings.SavingsHistoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -43,16 +44,18 @@ public class PayoutScheduleService {
 	private final GroupMembershipRepository membershipRepository;
 	private final LedgerEntryRepository ledgerEntryRepository;
 	private final CmiClient cmiClient;
+	private final SavingsHistoryService savingsHistoryService;
 
 	public PayoutScheduleService(PayoutScheduleRepository payoutScheduleRepository,
 			ContributionScheduleRepository contributionScheduleRepository,
 			GroupMembershipRepository membershipRepository, LedgerEntryRepository ledgerEntryRepository,
-			CmiClient cmiClient) {
+			CmiClient cmiClient, SavingsHistoryService savingsHistoryService) {
 		this.payoutScheduleRepository = payoutScheduleRepository;
 		this.contributionScheduleRepository = contributionScheduleRepository;
 		this.membershipRepository = membershipRepository;
 		this.ledgerEntryRepository = ledgerEntryRepository;
 		this.cmiClient = cmiClient;
+		this.savingsHistoryService = savingsHistoryService;
 	}
 
 	/**
@@ -128,6 +131,11 @@ public class PayoutScheduleService {
 		}
 		ledgerEntryRepository.save(
 			LedgerEntry.payout(payout.getGroupId(), payoutId, actorUserId, payout.getAmount(), source));
+
+		// story 7.1: a cycle is "complete" once its payout has actually executed, not merely
+		// once contributions are confirmed (decisions.md 2026-08-03 — Epic 4 landed, so the
+		// old contribution-confirmed proxy is no longer the strongest available signal).
+		savingsHistoryService.recordSnapshotsIfCycleComplete(payout.getGroupId(), payout.getCycleNumber());
 	}
 
 	private void requireOrganizer(UUID groupId, UUID userId) {

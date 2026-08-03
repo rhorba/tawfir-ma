@@ -24,10 +24,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Records a savings-history snapshot per member whenever a group cycle fully
- * completes (story 7.1). "Cycle complete" is a proxy for real payout
- * execution (Epic 4 doesn't exist yet, blocked on SDR-3, decisions.md
- * 2026-07-31) — every member's contribution for the cycle reaching CONFIRMED
- * is the closest available signal.
+ * completes (story 7.1) — called by {@code PayoutScheduleService} once a
+ * cycle's payout actually executes (decisions.md 2026-08-03). The
+ * "every contribution for the cycle is CONFIRMED" check below is a
+ * precondition payout execution already guarantees for the cron/webhook
+ * paths, but is re-verified here since an organizer's manual override
+ * (story 4.2) can execute a payout without that guarantee.
  */
 @Service
 public class SavingsHistoryService {

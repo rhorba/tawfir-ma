@@ -304,7 +304,9 @@ As the **system**, I want to record a savings-history snapshot when a member com
 **Technical Notes**: Populates `savings_history_snapshots` (database doc §3) on cycle completion. `GET /api/v1/users/:id/savings-history` exposed now; `GET /api/v1/internal/kasb-export` contract reserved but not required to function in MVP (architecture doc §5 — explicitly Phase 2).
 **Dependencies**: Epic 4 (a completed cycle requires payouts to have executed).
 
-**Sprint 5 Batch 3 implementation note (2026-07-31, see .logs/decisions.md)**: "cycle completion" is a proxy — every member's cycle contribution reaching CONFIRMED — since Epic 4 (real payout execution) is still blocked on SDR-3. `on_time_rate` needed a new `contribution_schedules.was_late` column (V8) since the current `status` alone loses late-history once a contribution reaches CONFIRMED.
+**Sprint 5 Batch 3 implementation note (2026-07-31, see .logs/decisions.md)**: `on_time_rate` needed a new `contribution_schedules.was_late` column (V8) since the current `status` alone loses late-history once a contribution reaches CONFIRMED.
+
+**2026-08-03 update (see .logs/decisions.md)**: initially "cycle completion" was a proxy (every member's cycle contribution reaching CONFIRMED) since Epic 4 was still blocked on SDR-3 at the time this story was built. Now that Epic 4 (real payout execution) has shipped, the trigger moved to `PayoutScheduleService` — a snapshot is recorded once the cycle's payout actually executes (cron, manual override, or webhook), which is the true "completed a cycle" signal FR-8 describes.
 
 ## Sprint Allocation 🔶 (indicative — re-plan once Sprint 2 actually starts, this is a first pass)
 

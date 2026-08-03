@@ -33,3 +33,6 @@ backend: 233/233 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.0% instructions 
 
 ## 2026-08-03 — Notification channel for late contributions + payout alerts (risk remediation)
 backend: 236/236 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.09% instructions / 93.93% branches (gate: 80%) — PASS. Checkstyle: 0 violations. New: LateContributionSchedulerTest (2, fixed an NPE from constructing the scheduler before Mockito mock injection), PayoutSchedulerTest gained 2 notification-verifying tests.
+
+## 2026-08-03 — Savings-history snapshot trigger moved to payout execution (stories-tawfir.md review fix)
+backend: 236/236 tests pass (`mvnw verify`, JDK 21). JaCoCo: 96.11% instructions / 94.39% branches (gate: 80%) — PASS. Checkstyle: 0 violations. Same test count as before — trigger relocated from ContributionService to PayoutScheduleService, with mock verifications following (ContributionServiceTest lost 4 assertions, PayoutScheduleServiceTest gained 5), plus SavingsHistoryFlowIntegrationTest's scenario updated to execute a payout before expecting a snapshot.

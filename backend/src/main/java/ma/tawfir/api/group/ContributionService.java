@@ -16,7 +16,6 @@ import ma.tawfir.api.group.entity.MembershipRole;
 import ma.tawfir.api.ledger.LedgerEntryRepository;
 import ma.tawfir.api.ledger.entity.LedgerEntry;
 import ma.tawfir.api.ledger.entity.LedgerSource;
-import ma.tawfir.api.savings.SavingsHistoryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,16 +43,14 @@ public class ContributionService {
 	private final GroupMembershipRepository membershipRepository;
 	private final GroupRepository groupRepository;
 	private final LedgerEntryRepository ledgerEntryRepository;
-	private final SavingsHistoryService savingsHistoryService;
 
 	public ContributionService(ContributionScheduleRepository contributionScheduleRepository,
 			GroupMembershipRepository membershipRepository, GroupRepository groupRepository,
-			LedgerEntryRepository ledgerEntryRepository, SavingsHistoryService savingsHistoryService) {
+			LedgerEntryRepository ledgerEntryRepository) {
 		this.contributionScheduleRepository = contributionScheduleRepository;
 		this.membershipRepository = membershipRepository;
 		this.groupRepository = groupRepository;
 		this.ledgerEntryRepository = ledgerEntryRepository;
-		this.savingsHistoryService = savingsHistoryService;
 	}
 
 	@Transactional
@@ -87,10 +84,6 @@ public class ContributionService {
 			.orElseThrow(() -> new NotFoundException("Group not found: " + groupId));
 		ledgerEntryRepository.save(LedgerEntry.contribution(
 			groupId, scheduleId, actingUserId, group.getContributionAmount(), LedgerSource.ORGANIZER_CONFIRMED));
-
-		// story 7.1: if this was the cycle's last outstanding contribution, record
-		// a savings-history snapshot for every member — a no-op otherwise.
-		savingsHistoryService.recordSnapshotsIfCycleComplete(groupId, schedule.getCycleNumber());
 
 		return toResponse(requireSchedule(groupId, scheduleId));
 	}
@@ -128,8 +121,6 @@ public class ContributionService {
 
 		ledgerEntryRepository.save(LedgerEntry.contribution(
 			schedule.getGroupId(), scheduleId, schedule.getUserId(), group.getContributionAmount(), LedgerSource.CMI_WEBHOOK));
-
-		savingsHistoryService.recordSnapshotsIfCycleComplete(schedule.getGroupId(), schedule.getCycleNumber());
 
 		return toResponse(requireScheduleById(scheduleId));
 	}

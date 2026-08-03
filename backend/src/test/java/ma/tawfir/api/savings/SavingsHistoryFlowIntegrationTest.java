@@ -26,9 +26,10 @@ import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * Full-stack: real Postgres (Testcontainers). Covers story 7.1's end-to-end
- * flow — a snapshot is only recorded once every member's cycle-1 contribution
- * is CONFIRMED, not after the first of two, and GET /users/:id/savings-history
- * is self-or-admin only.
+ * flow — a snapshot is only recorded once the cycle's payout has actually
+ * executed (decisions.md 2026-08-03), not merely once every member's cycle-1
+ * contribution is CONFIRMED, and GET /users/:id/savings-history is
+ * self-or-admin only.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -100,6 +101,19 @@ class SavingsHistoryFlowIntegrationTest {
 		throw new IllegalStateException("No schedule found for user " + userId + " cycle " + cycleNumber);
 	}
 
+	private String findPayoutId(String groupId, String token, int cycleNumber) throws Exception {
+		JsonNode payouts = objectMapper.readTree(
+			mockMvc.perform(get("/api/v1/groups/{id}/payouts", groupId)
+					.header("Authorization", "Bearer " + token))
+				.andReturn().getResponse().getContentAsString());
+		for (JsonNode payout : payouts) {
+			if (payout.get("cycleNumber").asInt() == cycleNumber) {
+				return payout.get("id").asText();
+			}
+		}
+		throw new IllegalStateException("No payout found for cycle " + cycleNumber);
+	}
+
 	private void markPaidAndConfirm(String payerToken, String organizerToken, String groupId, String scheduleId) throws Exception {
 		mockMvc.perform(post("/api/v1/groups/{groupId}/contributions/{scheduleId}/mark-paid", groupId, scheduleId)
 				.header("Authorization", "Bearer " + payerToken))
@@ -110,7 +124,7 @@ class SavingsHistoryFlowIntegrationTest {
 	}
 
 	@Test
-	void cycleCompletion_recordsSnapshotForEveryMember_onlyOnceCycleFullyConfirmed() throws Exception {
+	void cycleCompletion_recordsSnapshotForEveryMember_onlyOncePayoutExecutes() throws Exception {
 		String organizerPhone = "+212702000001";
 		String memberPhone = "+212702000002";
 		String organizerToken = loginAndGetAccessToken(organizerPhone);
@@ -128,15 +142,26 @@ class SavingsHistoryFlowIntegrationTest {
 		String organizerScheduleId = findScheduleId(contributions, organizerId, 1);
 		String memberScheduleId = findScheduleId(contributions, memberId, 1);
 
-		// First of two cycle-1 contributions confirmed — cycle not complete yet, no snapshot.
+		// First of two cycle-1 contributions confirmed — payout can't execute yet, no snapshot.
 		markPaidAndConfirm(organizerToken, organizerToken, groupId, organizerScheduleId);
 		mockMvc.perform(get("/api/v1/users/{userId}/savings-history", organizerId)
 				.header("Authorization", "Bearer " + organizerToken))
 			.andExpect(status().isOk())
 			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$").isEmpty());
 
-		// Second (last) cycle-1 contribution confirmed — cycle complete, snapshot recorded for both members.
+		// Second (last) cycle-1 contribution confirmed — all contributions in, but the payout
+		// itself hasn't executed yet, so still no snapshot (story 7.1 tracks payout completion).
 		markPaidAndConfirm(memberToken, organizerToken, groupId, memberScheduleId);
+		mockMvc.perform(get("/api/v1/users/{userId}/savings-history", organizerId)
+				.header("Authorization", "Bearer " + organizerToken))
+			.andExpect(status().isOk())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$").isEmpty());
+
+		// Organizer executes the cycle-1 payout — the cycle is now genuinely complete, snapshot recorded for both members.
+		String payoutId = findPayoutId(groupId, organizerToken, 1);
+		mockMvc.perform(post("/api/v1/groups/{groupId}/payouts/{payoutId}/execute", groupId, payoutId)
+				.header("Authorization", "Bearer " + organizerToken))
+			.andExpect(status().isOk());
 
 		mockMvc.perform(get("/api/v1/users/{userId}/savings-history", organizerId)
 				.header("Authorization", "Bearer " + organizerToken))

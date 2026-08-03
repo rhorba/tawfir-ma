@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -29,7 +28,6 @@ import ma.tawfir.api.group.entity.MembershipRole;
 import ma.tawfir.api.group.entity.PayoutOrderMode;
 import ma.tawfir.api.ledger.LedgerEntryRepository;
 import ma.tawfir.api.ledger.entity.LedgerEntry;
-import ma.tawfir.api.savings.SavingsHistoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,15 +46,13 @@ class ContributionServiceTest {
 	private GroupRepository groupRepository;
 	@Mock
 	private LedgerEntryRepository ledgerEntryRepository;
-	@Mock
-	private SavingsHistoryService savingsHistoryService;
 
 	private ContributionService contributionService;
 
 	@BeforeEach
 	void setUp() {
 		contributionService = new ContributionService(contributionScheduleRepository, membershipRepository,
-			groupRepository, ledgerEntryRepository, savingsHistoryService);
+			groupRepository, ledgerEntryRepository);
 	}
 
 	private ContributionSchedule schedule(UUID groupId, UUID id, UUID userId, ContributionStatus status) {
@@ -143,7 +139,6 @@ class ContributionServiceTest {
 
 		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
 		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
-		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
 	}
 
 	@Test
@@ -176,7 +171,6 @@ class ContributionServiceTest {
 		assertThatThrownBy(() -> contributionService.confirm(organizerId, groupId, scheduleId))
 			.isInstanceOf(ValidationException.class);
 		verify(ledgerEntryRepository, never()).save(any());
-		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test
@@ -230,7 +224,6 @@ class ContributionServiceTest {
 
 		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
 		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
-		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
 	}
 
 	@Test
@@ -245,7 +238,6 @@ class ContributionServiceTest {
 
 		assertThat(response.status()).isEqualTo(ContributionStatus.CONFIRMED);
 		verify(ledgerEntryRepository, never()).save(any());
-		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test

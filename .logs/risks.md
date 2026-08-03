@@ -37,3 +37,12 @@
 - **Status**: closed — 2026-08-03. Implemented, `mvnw verify` green (236/236 tests, checkstyle clean, coverage gate met — caught and fixed a real bug along the way: `LateContributionSchedulerTest` built its `scheduler` field before Mockito injected the `@Mock` fields, capturing nulls; fixed by moving construction into `@BeforeEach`, matching `PayoutSchedulerTest`'s existing pattern). `stories-tawfir.md` story 3.4's "channel TBD" note updated. Residual: still a mocked provider — swapping in a real SMS/push implementation before public launch remains open, same category as the OTP/CMI mocks.
 - **Impact**: low
 ---
+
+### [2026-07-27] SECURITY — admin-app role gate / group Finalize button described as "client-side/UX-only"
+- **Specialist**: Backend Dev / Security Engineer
+- **Summary**: Several session notes (2026-07-27 onward) repeatedly flagged the Angular admin login's role check and React GroupDetail's organizer-gated Finalize button as "client-side/UX-only," implying a possible missing server-side security boundary. Re-audited the actual codebase on 2026-08-03 rather than trusting the carried-forward note.
+- **Probability**: N/A — audit finding, not a live risk.
+- **Mitigation**: N/A.
+- **Status**: closed — 2026-08-03, confirmed non-issue by direct code audit. `SecurityConfig` requires authentication on everything except `/auth/**`, `/webhooks/**`, and health/info; every admin-only endpoint (`AdminController`, the two admin `MfaController` endpoints) has an explicit server-side `requireAdmin(Authentication)` check (403 if not `ROLE_ADMIN`). Every organizer-gated group action (`GroupService.finalizeGroup`, `ContributionService` mark-paid/confirm, `DisputeService.resolve`, `PayoutScheduleService` manual execute) has its own real membership/role check in the service layer. The frontend checks are redundant UX conveniences on top of enforcement that was always correct server-side — not a gap. No code changes needed.
+- **Impact**: none (false positive, closed on audit)
+---

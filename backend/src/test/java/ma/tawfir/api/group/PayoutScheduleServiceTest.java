@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.ArgumentMatchers.anyShort;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,6 +26,7 @@ import ma.tawfir.api.group.entity.PayoutStatus;
 import ma.tawfir.api.ledger.LedgerEntryRepository;
 import ma.tawfir.api.ledger.entity.LedgerEntry;
 import ma.tawfir.api.payment.CmiClient;
+import ma.tawfir.api.savings.SavingsHistoryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,13 +47,15 @@ class PayoutScheduleServiceTest {
 	private LedgerEntryRepository ledgerEntryRepository;
 	@Mock
 	private CmiClient cmiClient;
+	@Mock
+	private SavingsHistoryService savingsHistoryService;
 
 	private PayoutScheduleService payoutScheduleService;
 
 	@BeforeEach
 	void setUp() {
 		payoutScheduleService = new PayoutScheduleService(payoutScheduleRepository, contributionScheduleRepository,
-			membershipRepository, ledgerEntryRepository, cmiClient);
+			membershipRepository, ledgerEntryRepository, cmiClient, savingsHistoryService);
 	}
 
 	private PayoutSchedule payout(UUID id, UUID groupId, UUID recipientId, PayoutStatus status) {
@@ -77,6 +81,7 @@ class PayoutScheduleServiceTest {
 		assertThat(executed).isTrue();
 		verify(cmiClient).initiateTransfer(payoutId.toString(), BigDecimal.valueOf(500));
 		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
+		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
 	}
 
 	@Test
@@ -92,6 +97,7 @@ class PayoutScheduleServiceTest {
 		assertThat(executed).isFalse();
 		verify(cmiClient, never()).initiateTransfer(any(), any());
 		verify(ledgerEntryRepository, never()).save(any());
+		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test
@@ -108,6 +114,7 @@ class PayoutScheduleServiceTest {
 
 		verify(payoutScheduleRepository).compareAndSetStatus(eq(payoutId), anySet(), eq(PayoutStatus.FAILED));
 		verify(ledgerEntryRepository, never()).save(any());
+		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test
@@ -126,6 +133,7 @@ class PayoutScheduleServiceTest {
 		assertThat(response.id()).isEqualTo(payoutId);
 		verify(cmiClient).initiateTransfer(payoutId.toString(), BigDecimal.valueOf(500));
 		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
+		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
 	}
 
 	@Test
@@ -170,6 +178,7 @@ class PayoutScheduleServiceTest {
 
 		verify(cmiClient).initiateTransfer(payoutId.toString(), BigDecimal.valueOf(500));
 		verify(ledgerEntryRepository).save(any(LedgerEntry.class));
+		verify(savingsHistoryService).recordSnapshotsIfCycleComplete(groupId, (short) 1);
 	}
 
 	@Test
@@ -183,6 +192,7 @@ class PayoutScheduleServiceTest {
 
 		verify(cmiClient, never()).initiateTransfer(any(), any());
 		verify(ledgerEntryRepository, never()).save(any());
+		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test
@@ -195,6 +205,7 @@ class PayoutScheduleServiceTest {
 		payoutScheduleService.confirmViaWebhook(payoutId, BigDecimal.valueOf(500));
 
 		verify(cmiClient, never()).initiateTransfer(any(), any());
+		verify(savingsHistoryService, never()).recordSnapshotsIfCycleComplete(any(), anyShort());
 	}
 
 	@Test
